@@ -1,0 +1,7 @@
+interface:
+  display_name: "0-retro 开发过程复盘"
+  short_description: "依据实际开发记录分析返工与低效原因，提出少量有证据的最小改进"
+  default_prompt: "使用 $0-retro 复盘当前开发过程，给出有证据的最小改进建议，区分已确认原因与待验证问题。"
+
+policy:
+  allow_implicit_invocation: false

@@ -44,7 +44,7 @@ try {
     $null = Git $checkout @('commit', '-m', 'Bootstrap fixture')
     $initial = Git $checkout @('rev-parse', 'HEAD')
 
-    foreach ($name in @('0-setup', '0-plan', '0-build', '0-review', '0-sync', '0-handoff')) {
+    foreach ($name in @('0-setup', '0-plan', '0-build', '0-review', '0-sync', '0-handoff', '0-retro')) {
         $folder = [IO.Directory]::CreateDirectory((Join-Path $source $name)).FullName
         $null = [IO.Directory]::CreateDirectory((Join-Path $folder 'agents'))
         [IO.File]::WriteAllText((Join-Path $folder 'SKILL.md'), "---`nname: $name`ndescription: Fixture.`n---`n")
@@ -61,7 +61,7 @@ try {
     $index = Join-Path $checkout '.git/index'
     $initialIndex = (Get-FileHash -LiteralPath $index).Hash
     $preview = @(& $script -SkillsRoot $source -Preview)
-    Assert ($preview.Count -eq 13) 'Preview must report the thirteen publishable skill files.'
+    Assert ($preview.Count -eq 15) 'Preview must report the fifteen publishable skill files.'
     Assert ((Get-FileHash -LiteralPath $index).Hash -eq $initialIndex) 'Preview must preserve index bytes.'
     Assert (-not (Test-Path -LiteralPath (Join-Path $checkout 'skills'))) 'Preview must preserve the worktree.'
     Assert (-not (Test-Path -LiteralPath (Join-Path $checkout '.git/FETCH_HEAD'))) 'Preview must not fetch.'
