@@ -2,7 +2,7 @@
 
 一套面向个人项目的轻量开发技能：建立文档、规划变更、实施、审查和同步文档。每个技能可以单独使用，沿用项目现有结构，不要求每次开发都走完整流程。
 
-## 五个技能
+## 六个技能
 
 | 技能 | 用途 | 典型调用 |
 | --- | --- | --- |
@@ -11,11 +11,13 @@
 | [0-build](skills/0-build/SKILL.md) | 实施功能、定位缺陷、验证并同步受影响文档 | `$0-build 按已确认的方案实现功能` |
 | [0-review](skills/0-review/SKILL.md) | 审查设计或代码，核实问题与影响 | `$0-review 审查当前未提交变更` |
 | [0-sync](skills/0-sync/SKILL.md) | 核对文档与实现，修订有依据的过期说明 | `$0-sync 检查并同步本次改动影响的文档` |
+| [0-handoff](skills/0-handoff/SKILL.md) | 保存当前任务状态，交接到新聊天继续 | `$0-handoff 为新窗口继续当前任务生成交接记录` |
 
-五个技能都配置为手动触发。项目和用户指令优先；提交、推送、部署等外部操作按实际授权执行。
+六个技能都配置为手动触发。项目和用户指令优先；提交、推送、部署等外部操作按实际授权执行。
 
 ## 使用方式
 
+- 换窗口接续：用 `0-handoff` 保存交接记录，再在同一实际工作目录的新聊天中读取；已有任务记录优先复用，否则保存到系统临时目录。
 - 接手项目：用 `0-setup` 建立必要文档入口。
 - 明确的小修改：直接用 `0-build`，完成相关验证。
 - 复杂功能：用 `0-plan` 明确方案，再用 `0-build` 实施；需要独立复核时调用 `0-review`。
@@ -25,14 +27,14 @@
 
 ## 安装到本地
 
-将本仓库的五个 `skills/0-*` 目录分别放入个人技能目录。以下为 Windows PowerShell 示例，适用于首次安装：
+将本仓库的六个 `skills/0-*` 目录分别放入个人技能目录。以下为 Windows PowerShell 示例，适用于首次安装：
 
 ```powershell
 git clone https://github.com/Avlonjune7/0.git
 Set-Location 0
 
 $destination = Join-Path $env:USERPROFILE '.agents\skills'
-$names = '0-setup', '0-plan', '0-build', '0-review', '0-sync'
+$names = '0-setup', '0-plan', '0-build', '0-review', '0-sync', '0-handoff'
 foreach ($name in $names) {
     if (Test-Path -LiteralPath (Join-Path $destination $name)) {
         throw "已有 $name，请先比对本地修改后再更新。"
@@ -79,7 +81,7 @@ python skills/0-build/scripts/run_checks.py --root D:/project/example --commands
 
 同步入口为 [scripts/sync.ps1](scripts/sync.ps1)，需要 PowerShell、Git 和可用的 GitHub 推送凭据。仓库默认分支为 `main`。
 
-**同步方向：本机已安装的五个技能 → 本仓库 `skills/` → GitHub。** 默认读取 `$env:USERPROFILE\.agents\skills`，不会修改其他技能或全局 Git 配置。
+**同步方向：本机已安装的六个技能 → 本仓库 `skills/` → GitHub。** 默认读取 `$env:USERPROFILE\.agents\skills`，不会修改其他技能或全局 Git 配置。
 
 ```powershell
 # 在仓库目录中预览变化，不修改文件或访问远端
@@ -88,7 +90,7 @@ python skills/0-build/scripts/run_checks.py --root D:/project/example --commands
 # 修改本地技能后：同步、提交、推送
 .\scripts\sync.ps1 -Message "完善审查流程"
 
-# 从其他目录读取五个技能
+# 从其他目录读取六个技能
 .\scripts\sync.ps1 -SkillsRoot 'D:\my-skills' -Message "更新技能"
 
 # 只同步并提交，暂不推送
@@ -101,7 +103,7 @@ python skills/0-build/scripts/run_checks.py --root D:/project/example --commands
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\sync.ps1 -Message "更新技能"
 ```
 
-脚本要求开始时工作区干净，只同步五个技能目录，并处理来源中已删除的对应文件。没有变化时不创建空提交；普通运行仍会推送已有本地提交。远端出现本地尚未包含的提交时停止，先检查并合并远端更新，再重新执行；不强制推送。
+脚本要求开始时工作区干净，只同步六个技能目录，并处理来源中已删除的对应文件。没有变化时不创建空提交；普通运行仍会推送已有本地提交。远端出现本地尚未包含的提交时停止，先检查并合并远端更新，再重新执行；不强制推送。
 
 README、测试或同步脚本本身的修改直接在仓库中维护，先自行检查并提交，再运行同步脚本。不要同时把安装目录和仓库副本当作技能的编辑来源：默认以本机安装目录为准。
 
