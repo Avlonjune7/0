@@ -119,7 +119,7 @@ try {
     $trackedOutput = (Invoke-RepoGit (@('ls-files', '-z', '--') + $scope)).Output -join "`n"
 } finally { [Console]::OutputEncoding = $previousEncoding }
 $tracked = @{}
-foreach ($path in $trackedOutput.Split([char]0, [StringSplitOptions]::RemoveEmptyEntries)) { $tracked[$path] = $true }
+foreach ($path in $trackedOutput.Split([char[]]@([char]0), [StringSplitOptions]::RemoveEmptyEntries)) { $tracked[$path] = $true }
 
 $sourcePaths = @{}
 $changes = @(

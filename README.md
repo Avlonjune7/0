@@ -95,6 +95,12 @@ python skills/0-build/scripts/run_checks.py --root D:/project/example --commands
 .\scripts\sync.ps1 -NoPush -Message "本地更新"
 ```
 
+若 Windows PowerShell 的执行策略阻止脚本，可只为本次进程运行：
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\sync.ps1 -Message "更新技能"
+```
+
 脚本要求开始时工作区干净，只同步五个技能目录，并处理来源中已删除的对应文件。没有变化时不创建空提交；普通运行仍会推送已有本地提交。远端出现本地尚未包含的提交时停止，先检查并合并远端更新，再重新执行；不强制推送。
 
 README、测试或同步脚本本身的修改直接在仓库中维护，先自行检查并提交，再运行同步脚本。不要同时把安装目录和仓库副本当作技能的编辑来源：默认以本机安装目录为准。
@@ -113,7 +119,7 @@ python -B -m unittest discover -s tests -v
 .\tests\test_sync_upload.ps1
 ```
 
-测试通过临时项目和本地 Git 仓库验证实际行为；符号链接和目录联接测试在系统权限不足时会跳过。首次发布已在 Windows 验证，其他操作系统尚未实测。
+测试通过临时项目和本地 Git 仓库验证实际行为；符号链接和目录联接测试在系统权限不足时会跳过。同步脚本已在 Windows PowerShell 5.1 和 PowerShell 7 验证，Python 工具已在 Windows 验证；其他操作系统尚未实测。
 
 ## 方法参考
 
