@@ -1,0 +1,7 @@
+interface:
+  display_name: "0-review 设计与代码审查"
+  short_description: "审查技术设计与代码变更，对照需求和项目约定定位缺口与回归风险"
+  default_prompt: "使用 $0-review 审查当前工作区变更，对照需求和项目约定核实问题并给出证据。"
+
+policy:
+  allow_implicit_invocation: false

@@ -1,0 +1,7 @@
+interface:
+  display_name: "0-build 项目实施与验证"
+  short_description: "按明确需求实施功能、修复缺陷并验证行为，同步受影响文档"
+  default_prompt: "使用 $0-build 按已确认需求完成改动，验证相关行为并同步受影响的项目文档。"
+
+policy:
+  allow_implicit_invocation: false

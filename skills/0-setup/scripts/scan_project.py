@@ -1,0 +1,165 @@
+"""Collect project paths without reading file contents."""
+
+import argparse
+import json
+import os
+from pathlib import Path
+import stat
+import subprocess
+
+
+SKIP_DIRECTORIES = {
+    ".git", ".hg", ".svn", ".venv", "venv", "node_modules", "vendor", "__pycache__",
+    ".next", ".nuxt", ".pytest_cache", "build", "dist", "coverage", "target",
+}
+DOCUMENT_SUFFIXES = {".md", ".mdx", ".rst", ".adoc"}
+DOCUMENT_NAMES = {"readme", "license", "changelog", "authors", "contributing"}
+CONFIG_NAMES = {
+    ".editorconfig", ".env.example", ".env.sample", ".env.template",
+    ".gitignore", ".pre-commit-config.yaml", "cargo.toml", "cargo.lock", "cmakelists.txt",
+    "composer.json", "composer.lock", "dockerfile", "go.mod", "go.sum", "gradlew",
+    "makefile", "gemfile", "gemfile.lock", "package.json", "package-lock.json",
+    "pnpm-lock.yaml", "pnpm-workspace.yaml", "pom.xml", "pyproject.toml", "pytest.ini",
+    "requirements.txt", "setup.cfg", "setup.py", "uv.lock", "yarn.lock", "meson.build",
+    "tsconfig.json", "jsconfig.json", "deno.json", "deno.jsonc", "pubspec.yaml",
+}
+CONFIG_PREFIXES = (
+    "compose.", "docker-compose.", "dockerfile.", "build.gradle", "settings.gradle",
+    "eslint.config.", "prettier.config.", "vite.config.", "vitest.config.",
+    "jest.config.", "playwright.config.", "next.config.", "tsconfig.", "requirements-",
+)
+SOURCE_SUFFIXES = {
+    ".c", ".cc", ".cpp", ".cs", ".dart", ".ex", ".exs", ".fs", ".go", ".h", ".hpp",
+    ".java", ".js", ".jsx", ".kt", ".lua", ".mjs", ".cjs", ".php", ".py", ".rb",
+    ".rs", ".scala", ".sh", ".ps1", ".sql", ".svelte", ".swift", ".ts", ".tsx", ".vue",
+}
+
+
+def entry_stat(path):
+    try:
+        info = path.lstat()
+    except (FileNotFoundError, NotADirectoryError):
+        return None
+    if stat.S_ISLNK(info.st_mode):
+        return None
+    if getattr(info, "st_file_attributes", 0) & stat.FILE_ATTRIBUTE_REPARSE_POINT:
+        return None
+    return info
+
+
+def git_paths(root, raw_paths):
+    seen = set()
+    for raw_path in raw_paths.split(b"\0"):
+        if not raw_path or raw_path in seen:
+            continue
+        seen.add(raw_path)
+        relative = Path(os.fsdecode(raw_path))
+        if relative.anchor or ".." in relative.parts:
+            continue
+        if any(directory.casefold() in SKIP_DIRECTORIES for directory in relative.parts[:-1]):
+            continue
+        current = root
+        for part in relative.parts:
+            current = current / part
+            info = entry_stat(current)
+            if info is None:
+                break
+        else:
+            if stat.S_ISREG(info.st_mode):
+                yield relative
+
+
+def walk_paths(root):
+    def raise_scan_error(error):
+        raise error
+
+    for location, directories, filenames in os.walk(root, onerror=raise_scan_error):
+        current = Path(location)
+        directories[:] = sorted(
+            name for name in directories
+            if name.casefold() not in SKIP_DIRECTORIES and entry_stat(current / name) is not None
+        )
+        for name in sorted(filenames):
+            path = current / name
+            info = entry_stat(path)
+            if info is not None and stat.S_ISREG(info.st_mode):
+                yield path.relative_to(root)
+
+
+def scan(root, max_files):
+    info = entry_stat(root)
+    if info is None or not stat.S_ISDIR(info.st_mode):
+        raise ValueError(f"not a regular directory: {root}")
+    exclusions = [f"--exclude={directory}/" for directory in sorted(SKIP_DIRECTORIES)]
+    try:
+        listing = subprocess.run(
+            ["git", "-C", str(root), "ls-files", "-z", "--cached", "--others", "--exclude-standard",
+             *exclusions, "--"],
+            capture_output=True,
+            check=False,
+        )
+    except OSError as error:
+        fallback = f"cannot run git: {error}"
+    else:
+        fallback = None if listing.returncode == 0 else listing.stderr.decode("utf-8", "replace").strip()
+        if listing.returncode and not fallback:
+            fallback = f"git ls-files exited {listing.returncode}"
+
+    paths = walk_paths(root) if fallback is not None else git_paths(root, listing.stdout)
+    documents = []
+    configs = []
+    source_dirs = set()
+    file_count = 0
+    truncated = False
+
+    for path in paths:
+        name = path.name.casefold()
+        is_private_env = (name == ".env" or name.startswith(".env.")) and name not in CONFIG_NAMES
+        if name == ".git" or is_private_env:
+            continue
+        if file_count == max_files:
+            truncated = True
+            break
+        file_count += 1
+        suffix = path.suffix.casefold()
+        if suffix in DOCUMENT_SUFFIXES or name in DOCUMENT_NAMES:
+            documents.append(path.as_posix())
+        elif name in CONFIG_NAMES or name.startswith(CONFIG_PREFIXES) or path.parts[:2] == (".github", "workflows"):
+            configs.append(path.as_posix())
+        elif suffix in SOURCE_SUFFIXES:
+            source_dirs.add(path.parent.as_posix())
+
+    return {
+        "root": str(root),
+        "scan_method": "filesystem" if fallback is not None else "git",
+        "git_fallback_reason": fallback,
+        "max_files": max_files,
+        "files_scanned": file_count,
+        "truncated": truncated,
+        "documents": sorted(documents),
+        "configurations": sorted(configs),
+        "candidate_source_dirs": sorted(source_dirs),
+    }
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description=("List project documents, common configuration paths, and directories containing source "
+                     "files as JSON. Uses Git's tracked and nonignored untracked paths when available, "
+                     "otherwise walks the requested directory. Skips links, junctions, and common output "
+                     "directories. Reads filenames only. Source directories are candidates by extension."),
+    )
+    parser.add_argument("--root", type=Path, default=Path.cwd(), help="directory to scan (default: current directory)")
+    parser.add_argument("--max-files", type=int, default=2000, help="maximum eligible files to classify (default: 2000)")
+    args = parser.parse_args()
+    if args.max_files < 1:
+        parser.error("--max-files must be positive")
+    try:
+        report = scan(Path(os.path.abspath(args.root)), args.max_files)
+    except (OSError, ValueError) as error:
+        parser.exit(2, f"{error}\n")
+    print(json.dumps(report, indent=2))
+
+
+if __name__ == "__main__":
+    main()
