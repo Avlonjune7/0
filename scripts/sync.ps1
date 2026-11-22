@@ -1,13 +1,13 @@
 <#
 .SYNOPSIS
-Synchronize seven local 0-* skills to this Git repository.
+Synchronize local 0-* and me-* skills to this Git repository.
 .DESCRIPTION
 Run from a clean checkout of main with origin configured and a local commit.
 The default source is the current user's .agents/skills directory. The command
 copies changed files, removes tracked files deleted from the source, and
 commits skill changes before pushing main. It does not force-push.
 .PARAMETER SkillsRoot
-Directory containing all seven 0-* skill folders.
+Directory containing the seven 0-* and two me-* skill folders.
 .PARAMETER Message
 Git commit message for the synchronized changes.
 .PARAMETER NoPush
@@ -27,7 +27,7 @@ $ErrorActionPreference = 'Stop'
 $PSNativeCommandUseErrorActionPreference = $false
 $repo = (Get-Item -LiteralPath (Split-Path -Parent $PSScriptRoot)).FullName
 $git = (Get-Command git -CommandType Application | Select-Object -First 1).Source
-$skillNames = @('0-setup', '0-plan', '0-build', '0-review', '0-sync', '0-handoff', '0-retro')
+$skillNames = @('0-setup', '0-plan', '0-build', '0-review', '0-sync', '0-handoff', '0-retro', 'me-ui', 'me-tools')
 $scope = @($skillNames | ForEach-Object { "skills/$_" })
 $pathComparison = [StringComparison]::OrdinalIgnoreCase
 
@@ -129,17 +129,20 @@ $changes = @(
         if (-not $source.PSIsContainer) { throw "Expected a skill directory: $($source.FullName)" }
         $files = @(Get-SourceFiles $source)
         $entry = $files | Where-Object { $_.FullName -eq (Join-Path $source.FullName 'SKILL.md') }
-        $metadata = $files | Where-Object { $_.FullName -eq (Join-Path $source.FullName 'agents/openai.yaml') }
-        if (-not $entry -or -not $metadata) { throw "$name requires SKILL.md and agents/openai.yaml." }
+        if (-not $entry) { throw "$name requires SKILL.md." }
         $frontmatter = [regex]::Match([IO.File]::ReadAllText($entry.FullName), '(?ms)\A---[ \t]*\r?\n(?<fields>.*?)^---[ \t]*\r?$')
         $escapedName = [regex]::Escape($name)
         $namePattern = '(?m)^name:[ \t]+{0}[ \t]*\r?$' -f $escapedName
         if (-not $frontmatter.Success -or $frontmatter.Groups['fields'].Value -cnotmatch $namePattern) {
             throw "SKILL.md must declare name: $name"
         }
-        $policy = [regex]::Match([IO.File]::ReadAllText($metadata.FullName), '(?m)^policy:[ \t]*\r?\n(?<fields>(?:[ \t]+[^\r\n]*\r?\n?)*)')
-        if (-not $policy.Success -or $policy.Groups['fields'].Value -cnotmatch '(?m)^[ \t]+allow_implicit_invocation:[ \t]+false[ \t]*(?:#[^\r\n]*)?\r?$') {
-            throw "$name must retain policy.allow_implicit_invocation: false."
+        if ($name.StartsWith('0-', [StringComparison]::Ordinal)) {
+            $metadata = $files | Where-Object { $_.FullName -eq (Join-Path $source.FullName 'agents/openai.yaml') }
+            if (-not $metadata) { throw "$name requires agents/openai.yaml." }
+            $policy = [regex]::Match([IO.File]::ReadAllText($metadata.FullName), '(?m)^policy:[ \t]*\r?\n(?<fields>(?:[ \t]+[^\r\n]*\r?\n?)*)')
+            if (-not $policy.Success -or $policy.Groups['fields'].Value -cnotmatch '(?m)^[ \t]+allow_implicit_invocation:[ \t]+false[ \t]*(?:#[^\r\n]*)?\r?$') {
+                throw "$name must retain policy.allow_implicit_invocation: false."
+            }
         }
         foreach ($file in $files) {
             $suffix = $file.FullName.Substring($source.FullName.Length + 1).Replace('\', '/')

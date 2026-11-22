@@ -50,6 +50,14 @@ try {
         [IO.File]::WriteAllText((Join-Path $folder 'SKILL.md'), "---`nname: $name`ndescription: Fixture.`n---`n")
         [IO.File]::WriteAllText((Join-Path $folder 'agents/openai.yaml'), "policy:`n  allow_implicit_invocation: false`n")
     }
+    foreach ($name in @('me-ui', 'me-tools')) {
+        $folder = [IO.Directory]::CreateDirectory((Join-Path $source $name)).FullName
+        [IO.File]::WriteAllText((Join-Path $folder 'SKILL.md'), "---`nname: $name`ndescription: Fixture.`n---`n")
+    }
+    $null = [IO.Directory]::CreateDirectory((Join-Path $source 'me-ui/references'))
+    $personalReference = Join-Path $source 'me-ui/references/components.md'
+    $targetReference = Join-Path $checkout 'skills/me-ui/references/components.md'
+    [IO.File]::WriteAllText($personalReference, 'Personal UI reference')
     # Construct the non-ASCII filename by code point for Windows PowerShell 5.1.
     $extra = ([string][char]0x6307) + ([string][char]0x5357) + ' with spaces.md'
     $sourceExtra = Join-Path $source "0-setup/$extra"
@@ -61,7 +69,7 @@ try {
     $index = Join-Path $checkout '.git/index'
     $initialIndex = (Get-FileHash -LiteralPath $index).Hash
     $preview = @(& $script -SkillsRoot $source -Preview)
-    Assert ($preview.Count -eq 15) 'Preview must report the fifteen publishable skill files.'
+    Assert ($preview.Count -eq 18) 'Preview must report publishable files from both skill groups.'
     Assert ((Get-FileHash -LiteralPath $index).Hash -eq $initialIndex) 'Preview must preserve index bytes.'
     Assert (-not (Test-Path -LiteralPath (Join-Path $checkout 'skills'))) 'Preview must preserve the worktree.'
     Assert (-not (Test-Path -LiteralPath (Join-Path $checkout '.git/FETCH_HEAD'))) 'Preview must not fetch.'
@@ -73,21 +81,41 @@ try {
     Assert ((Git $remote @('rev-parse', 'refs/heads/main')) -eq $first) 'First sync must push to the empty remote.'
     Assert (Test-Path -LiteralPath $targetExtra) 'Unicode filename must be copied.'
     Assert (-not (Test-Path -LiteralPath (Join-Path $checkout 'skills/0-setup/__pycache__'))) 'Cache files must not be published.'
+    Assert (Test-Path -LiteralPath (Join-Path $checkout 'skills/me-ui/SKILL.md')) 'Personal UI skill must be published without agent metadata.'
+    Assert (Test-Path -LiteralPath (Join-Path $checkout 'skills/me-tools/SKILL.md')) 'Personal tools skill must be published without agent metadata.'
+    Assert (Test-Path -LiteralPath $targetReference) 'Personal skill references must be published.'
 
     $sourceEntry = Join-Path $source '0-build/SKILL.md'
     [IO.File]::AppendAllText($sourceEntry, "`n# A real change`n")
     Remove-Item -LiteralPath $sourceExtra
+    Remove-Item -LiteralPath $personalReference
+    $personalEntry = Join-Path $source 'me-tools/SKILL.md'
+    [IO.File]::AppendAllText($personalEntry, "`n# Updated tool preference`n")
+    $null = [IO.Directory]::CreateDirectory((Join-Path $source 'me-tools/agents'))
+    $personalPolicy = "policy:`n  allow_implicit_invocation: true`n"
+    [IO.File]::WriteAllText((Join-Path $source 'me-tools/agents/openai.yaml'), $personalPolicy)
     $null = Git $checkout @('remote', 'set-url', 'origin', (Join-Path $fixture 'missing.git'))
     & $script -SkillsRoot $source -NoPush -Message 'Change and delete skill files' | Out-Null
     $second = Git $checkout @('rev-parse', 'HEAD')
     Assert ($second -ne $first) 'Offline sync must commit without a reachable origin.'
     Assert (-not (Test-Path -LiteralPath $targetExtra)) 'A deleted source file must be removed from the checkout.'
+    Assert (-not (Test-Path -LiteralPath $targetReference)) 'A deleted personal skill reference must be removed from the checkout.'
+    Assert ([IO.File]::ReadAllText((Join-Path $checkout 'skills/me-tools/SKILL.md')) -eq [IO.File]::ReadAllText($personalEntry)) 'Personal skill updates must be copied.'
+    Assert ([IO.File]::ReadAllText((Join-Path $checkout 'skills/me-tools/agents/openai.yaml')) -eq $personalPolicy) 'Optional personal agent metadata must retain implicit invocation.'
     Assert ((Git $remote @('rev-parse', 'refs/heads/main')) -eq $first) 'NoPush must leave the remote branch unchanged.'
     $null = Git $checkout @('remote', 'set-url', 'origin', $remote)
     & $script -SkillsRoot $source | Out-Null
     Assert ((Git $remote @('rev-parse', 'refs/heads/main')) -eq $second) 'A subsequent run must push the pending commit.'
     & $script -SkillsRoot $source | Out-Null
     Assert ((Git $checkout @('rev-parse', 'HEAD')) -eq $second) 'A repeated sync must not create an empty commit.'
+
+    $workflowPolicy = Join-Path $source '0-build/agents/openai.yaml'
+    $savedWorkflowPolicy = [IO.File]::ReadAllText($workflowPolicy)
+    Remove-Item -LiteralPath $workflowPolicy
+    Assert-Rejected { & $script -SkillsRoot $source -NoPush } '0-build requires agents/openai.yaml'
+    [IO.File]::WriteAllText($workflowPolicy, $personalPolicy)
+    Assert-Rejected { & $script -SkillsRoot $source -NoPush } '0-build must retain policy.allow_implicit_invocation: false'
+    [IO.File]::WriteAllText($workflowPolicy, $savedWorkflowPolicy)
 
     $untracked = Join-Path $checkout 'other-session.txt'
     [IO.File]::WriteAllText($untracked, 'Untracked work')
