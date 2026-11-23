@@ -75,6 +75,8 @@ class RunChecksTests(unittest.TestCase):
             {"name": "invalid argv", "argv": ["tool", 5]},
             {"name": "invalid key", "argv": ["tool"], "cdw": "other"},
             {"name": "outside checkout", "argv": ["tool"], "cwd": ".."},
+            {"name": "bad timeout", "argv": ["tool"], "timeout_sec": 0},
+            {"name": "bool timeout", "argv": ["tool"], "timeout_sec": True},
             {"name": "marker", "argv": ["tool"]},
         ]
         if os.name == "nt":
@@ -120,6 +122,25 @@ while not peer_marker.exists():
         self.assertEqual([result["name"] for result in report["results"]], ["first", "second"])
         self.assertTrue((self.root / "first.ready").is_file())
         self.assertTrue((self.root / "second.ready").is_file())
+
+    def test_reports_timeout_and_terminates_hanging_check(self):
+        status, report = self.invoke([
+            self.check("hang", "import time; print('before-timeout', flush=True); time.sleep(10)", timeout_sec=0.3),
+            self.check("fast", "print('ok')"),
+        ])
+        self.assertEqual(status, 1)
+        self.assertEqual(report["status"], "failed")
+        hang, fast = report["results"]
+        self.assertTrue(hang["timed_out"])
+        self.assertIsNone(hang["exit_code"])
+        self.assertIn("before-timeout", hang["output_tail"])
+        self.assertFalse(fast["timed_out"])
+        self.assertEqual(fast["exit_code"], 0)
+
+    def test_rejects_negative_cli_timeout(self):
+        status, report = self.invoke([self.check("ok", "print('ok')")], "--timeout", "-1")
+        self.assertEqual(status, 2)
+        self.assertEqual(report["status"], "invalid_input")
 
 
 if __name__ == "__main__":
