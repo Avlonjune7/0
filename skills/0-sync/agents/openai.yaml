@@ -1,7 +1,0 @@
-interface:
-  display_name: "0-sync"
-  short_description: "核对项目文档与实际实现，修订过期说明并记录待处理的差异"
-  default_prompt: "用 $0-sync 核对当前项目文档与实现，更新证据充分的过期说明，并报告仍存在的差异。"
-
-policy:
-  allow_implicit_invocation: false

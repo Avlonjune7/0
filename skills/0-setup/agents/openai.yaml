@@ -1,7 +1,7 @@
 interface:
-  display_name: "0-setup 项目初始化"
-  short_description: "接入 Git，从真实代码建立项目入口、模块说明和后续开发的文档约定"
-  default_prompt: "使用 $0-setup 初始化当前项目的 Git、文档与工作约定，复用已有仓库，保留有效内容并核对源码依据。"
+  display_name: "0-setup 项目接入与文档同步"
+  short_description: "接入 Git、建立项目入口与文档约定，或集中核对并同步过期文档"
+  default_prompt: "使用 $0-setup 初始化当前项目的 Git、文档与工作约定，或核对并同步已有项目文档。"
 
 policy:
   allow_implicit_invocation: false

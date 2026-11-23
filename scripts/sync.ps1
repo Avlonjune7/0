@@ -7,7 +7,7 @@ The default source is the current user's .agents/skills directory. The command
 copies changed files, removes tracked files deleted from the source, and
 commits skill changes before pushing main. It does not force-push.
 .PARAMETER SkillsRoot
-Directory containing the seven 0-* and two me-* skill folders.
+Directory containing the five 0-* and two me-* skill folders.
 .PARAMETER Message
 Git commit message for the synchronized changes.
 .PARAMETER NoPush
@@ -27,7 +27,7 @@ $ErrorActionPreference = 'Stop'
 $PSNativeCommandUseErrorActionPreference = $false
 $repo = (Get-Item -LiteralPath (Split-Path -Parent $PSScriptRoot)).FullName
 $git = (Get-Command git -CommandType Application | Select-Object -First 1).Source
-$skillNames = @('0-setup', '0-plan', '0-build', '0-review', '0-sync', '0-handoff', '0-retro', 'me-ui', 'me-tools')
+$skillNames = @('0-setup', '0-plan', '0-build', '0-review', '0-handoff', 'me-ui', 'me-tools')
 $scope = @($skillNames | ForEach-Object { "skills/$_" })
 $pathComparison = [StringComparison]::OrdinalIgnoreCase
 

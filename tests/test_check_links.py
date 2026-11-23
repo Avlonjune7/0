@@ -9,7 +9,7 @@ from pathlib import Path
 
 
 WORKSPACE = Path(__file__).resolve().parents[1]
-SCRIPT = WORKSPACE / "skills" / "0-sync" / "scripts" / "check_links.py"
+SCRIPT = WORKSPACE / "skills" / "0-setup" / "scripts" / "check_links.py"
 
 
 class CheckLinksTest(unittest.TestCase):
