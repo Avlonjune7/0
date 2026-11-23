@@ -3,7 +3,7 @@
 Synchronize local 0-* and me-* skills to this Git repository.
 .DESCRIPTION
 Run from a clean checkout of main with origin configured and a local commit.
-The default source is the current user's .agents/skills directory. The command
+The default source is the current user's .codex/skills directory. The command
 copies changed files, removes tracked files deleted from the source, and
 commits skill changes before pushing main. It does not force-push.
 .PARAMETER SkillsRoot
@@ -17,7 +17,7 @@ Show files that would change. Leaves the worktree, index and remote alone.
 #>
 [CmdletBinding()]
 param(
-    [string]$SkillsRoot = (Join-Path $env:USERPROFILE '.agents/skills'),
+    [string]$SkillsRoot = (Join-Path $env:USERPROFILE '.codex/skills'),
     [ValidateNotNullOrEmpty()][string]$Message = 'Sync 0 skills',
     [switch]$NoPush,
     [switch]$Preview

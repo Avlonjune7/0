@@ -61,7 +61,7 @@
 git clone https://github.com/Avlonjune7/0.git
 Set-Location 0
 
-$destination = Join-Path $env:USERPROFILE '.agents\skills'
+$destination = Join-Path $env:USERPROFILE '.codex\skills'
 $names = '0-setup', '0-plan', '0-build', '0-review', '0-handoff'
 foreach ($name in $names) {
     if (Test-Path -LiteralPath (Join-Path $destination $name)) {
@@ -109,7 +109,7 @@ python skills/0-build/scripts/run_checks.py --root D:/project/example --commands
 
 同步入口为 [scripts/sync.ps1](scripts/sync.ps1)，需要 PowerShell、Git 和可用的 GitHub 推送凭据。仓库默认分支为 `main`。
 
-**同步方向：本机已安装的七个技能 → 本仓库 `skills/` → GitHub。** 默认读取 `$env:USERPROFILE\.agents\skills`，不会修改其他技能或全局 Git 配置。
+**同步方向：本机已安装的七个技能 → 本仓库 `skills/` → GitHub。** 默认读取 `$env:USERPROFILE\.codex\skills`，不会修改其他技能或全局 Git 配置。
 
 ```powershell
 # 在仓库目录中预览变化，不修改文件或访问远端
