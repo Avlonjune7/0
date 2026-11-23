@@ -1,7 +1,7 @@
 interface:
   display_name: "0-plan 需求与实施规划"
-  short_description: "调查项目现状、澄清关键需求并制定可交接的方案和验收标准"
-  default_prompt: "使用 $0-plan 为这项变更调查现状，形成有依据的方案、验收标准和实施步骤。"
+  short_description: "查清现状、澄清需求，产出带 AC 编号的规格，经金鱼评审和批准后交付实施"
+  default_prompt: "使用 $0-plan 为这项变更调查现状，写出带编号验收条件的规格和步骤，按需做金鱼评审后请我批准。"
 
 policy:
   allow_implicit_invocation: false

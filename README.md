@@ -6,13 +6,27 @@
 
 | 技能 | 用途 | 典型调用 |
 | --- | --- | --- |
-| [0-setup](skills/0-setup/SKILL.md) | 初始化 Git、建立文档入口与约定，或集中核对并同步过期文档 | `$0-setup 初始化当前项目` |
-| [0-plan](skills/0-plan/SKILL.md) | 查清现状、澄清需求、形成方案与验收条件 | `$0-plan 先规划这个功能，暂不实施` |
-| [0-build](skills/0-build/SKILL.md) | 实施功能、定位缺陷、验证并同步受影响文档 | `$0-build 按已确认的方案实现功能` |
-| [0-review](skills/0-review/SKILL.md) | 审查设计或代码，核实问题与影响 | `$0-review 审查当前未提交变更` |
-| [0-handoff](skills/0-handoff/SKILL.md) | 保存当前任务状态，交接到新聊天继续 | `$0-handoff 为新窗口继续当前任务生成交接记录` |
+| [0-setup](skills/0-setup/SKILL.md) | 初始化 Git、建立文档入口、决策日志与约定，或集中核对并同步过期文档 | `$0-setup 初始化当前项目` |
+| [0-plan](skills/0-plan/SKILL.md) | 查清现状、澄清需求，写出带 AC 编号的规格；中等以上任务经金鱼评审和批准 | `$0-plan 先规划这个功能，暂不实施` |
+| [0-build](skills/0-build/SKILL.md) | 实施、排错、按 AC 验证；非小改收尾做金鱼代码评审，同步受影响文档 | `$0-build 按已确认的方案实现功能` |
+| [0-review](skills/0-review/SKILL.md) | 用无历史的金鱼子代理审查规格或代码，核实问题与影响 | `$0-review 审查当前未提交变更` |
+| [0-handoff](skills/0-handoff/SKILL.md) | 先判断是否需要交接，需要时保存任务状态供新会话继续 | `$0-handoff 为新窗口继续当前任务生成交接记录` |
 
-五个技能都配置为手动触发。项目和用户指令优先；提交、推送、部署等外部操作按实际授权执行。
+五个技能都配置为手动触发（Codex 用 `agents/openai.yaml`，Claude Code 用 `disable-model-invocation`）。项目和用户指令优先；提交、推送、部署等外部操作按实际授权执行。0-plan 和 0-build 引用 0-review 的规则与脚本，五个技能需一起安装。
+
+### 大象与金鱼
+
+主会话是**大象**：持有项目上下文，负责规划和实施。**金鱼**是无会话历史的只读子代理，只拿到规格、原始需求和改动路径，用来发现大象看不到的隐含假设。**你**负责裁决取舍和批准规格。
+
+```text
+0-setup ─► 0-plan ─► [金鱼评审规格] ─► 你批准 ─► 0-build ─► [金鱼评审代码] ─► 交付
+              ▲                                     │
+              └──────── docs/decisions.md ◄──────────┘   （决策日志是大象的跨会话记忆）
+```
+
+- 规格状态 `草案 → 已批准`；验收条件编号 `AC-1…`，贯穿规格、验证和评审。
+- 金鱼评审默认只做一轮，每个角度最多 5 条发现；小改跳过。
+- 换窗口前用 0-handoff 先判断：能继续就继续，没用就新开，只有换工具、换目录、交给他人或分出支线时才写交接文件。
 
 ## 个人偏好：me-*
 
@@ -27,12 +41,13 @@
 
 ## 使用方式
 
-- 换窗口接续：用 `0-handoff` 保存交接记录，再在同一实际工作目录的新聊天中读取；已有任务记录优先复用，否则保存到系统临时目录。
+- 换窗口接续：先用 `0-handoff` 判断是否真的需要交接；需要时保存交接文件（默认项目根 `.handoff/`，本地排除不提交），再在新会话中读取。
 - 接手项目或文档漂移核对：用 `0-setup` 建立必要文档入口，或在文档积累偏差时集中核对与同步；批准的需求与代码冲突时保留需求并报告差异，不把错误实现改写成正确规格。
 - 明确的小修改：直接用 `0-build`，完成相关验证并顺手同步受影响文档。
-- 复杂功能：用 `0-plan` 明确方案与纵向切片，再用 `0-build` 实施；需要独立复核时调用 `0-review`。
+- 复杂功能：用 `0-plan` 写规格和纵向切片，经金鱼评审和你批准后用 `0-build` 实施；单独复核已有设计或 PR 时调用 `0-review`。
+- 想被深入追问时：对 `0-plan` 说"深挖"，它会一次问一个问题直到决策闭合。
 
-`0-setup` 默认采用**轻量接入**（核对入口、配置、契约与已有文档，按需建立 `AGENTS.md`、`docs/workflow.md` 与根 `README`）；仅在明确要求全库模块建档或接手缺少说明的大中型代码库时启用**深度建档**。深度建档中，源码量不超过单块阈值（约 1,500–2,000 行）时可由主会话直接读取；超过阈值时按完整函数、类或方法边界分块（每块目标约 1,500 行），通过宿主原生无历史只读子代理并发阅读，汇总后自底向上逐层写文档。无法完整覆盖时明确报告缺口。
+`0-setup` 默认采用**轻量接入**（核对入口、配置、契约与已有文档，按需建立 `AGENTS.md`、`docs/workflow.md` 与根 `README`）；仅在明确要求全库模块建档或接手缺少说明的大中型代码库时启用**深度建档**，阈值与分块规则见 [deep-scan.md](skills/0-setup/references/deep-scan.md)。无法完整覆盖时明确报告缺口。
 
 完整项目初始化时，`0-setup` 默认复用已有 Git，独立项目无仓库则初始化本地 `main` 并补齐必要忽略规则；局部或仅文档任务不自动初始化 Git。远端按明确需求和授权接入，不默认创建 GitHub 仓库、提交或推送。
 
@@ -138,4 +153,18 @@ python -B -m unittest discover -s tests -v
 
 ## 方法参考
 
-工作流借鉴 [Matt Pocock Skills](https://github.com/mattpocock/skills) 与 [Elephant–Goldfish Model](https://github.com/google/elephant-goldfish-model) 的需求澄清、实施验证、独立审查与文档维护思路，并按个人项目需求取舍。本仓库独立使用，不依赖安装这两套技能，也不是它们的官方发行版。
+工作流借鉴 [Matt Pocock Skills](https://github.com/mattpocock/skills) 与 [Elephant–Goldfish Model](https://github.com/google/elephant-goldfish-model) 的需求澄清、实施验证、独立审查与文档维护思路，并按个人项目需求取舍。本仓库独立使用，不依赖安装这两套技能，也不是它们的官方发行版。技能正文不再重复来源说明，以本节为准。
+
+| 0-* 环节 | 对应来源 |
+| --- | --- |
+| 0-setup 接入、深度建档、漂移核对 | Matt `setup-matt-pocock-skills`；EGM `egm-bootstrap`、`egm-drift-report` |
+| 0-plan 澄清、深挖模式 | Matt `grill-me` / `grilling`；EGM `egm-brainstorm` |
+| 0-plan 规格、AC、纵向切片 | Matt `to-spec`、`to-tickets`；EGM `egm-draft` |
+| 0-plan 金鱼评审与批准 | EGM `egm-review`（可理解、实施就绪两个角度）、`egm-resolve` |
+| 0-build 实施、TDD、排错 | Matt `implement`、`tdd`、`diagnosing-bugs`；EGM `egm-lite` |
+| 0-build 收尾代码评审 / 0-review | Matt `code-review`（规格与规范双轴）；EGM `egm-lite` 对抗式 diff 评审 |
+| 决策日志 | Matt `domain-modeling` 的 ADR，简化为单文件追加 |
+| 0-handoff 阶段边界判断与交接 | Matt `handoff`、`ask-matt` 的 PHASE-BOUNDARIES |
+| 交付末尾的一条改进建议 | Matt `retro`，简化为单条建议 |
+
+有意未纳入：triage、wayfinder、implement-spec、pr、wizard、teach 和 EGM 完整五阶段评审流水线，它们主要面向团队协作或超大任务。

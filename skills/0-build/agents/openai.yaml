@@ -1,7 +1,7 @@
 interface:
   display_name: "0-build 项目实施与验证"
-  short_description: "按明确需求实施功能、修复缺陷并验证行为，同步受影响文档"
-  default_prompt: "使用 $0-build 按已确认需求完成改动，验证相关行为并同步受影响的项目文档。"
+  short_description: "按需求或已批准规格实施并按 AC 验证，非小改收尾做金鱼代码评审"
+  default_prompt: "使用 $0-build 按已确认需求完成改动，按 AC 验证，非小改做一轮金鱼代码评审，并同步受影响的项目文档。"
 
 policy:
   allow_implicit_invocation: false

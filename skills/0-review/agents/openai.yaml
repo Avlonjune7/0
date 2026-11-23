@@ -1,6 +1,6 @@
 interface:
   display_name: "0-review 设计与代码审查"
-  short_description: "审查技术设计与代码变更，对照需求和项目约定定位缺口与回归风险"
+  short_description: "用无历史的金鱼子代理审查规格或代码变更，核实问题并给出证据"
   default_prompt: "使用 $0-review 审查当前工作区变更，对照需求和项目约定核实问题并给出证据。"
 
 policy:

@@ -1,6 +1,6 @@
 interface:
   display_name: "0-handoff 换窗口交接"
-  short_description: "整理当前目标、工作状态、验证证据与剩余步骤，供新聊天继续任务"
+  short_description: "先判断是否需要交接，需要时整理目标、状态、证据与剩余步骤供新会话继续"
   default_prompt: "使用 $0-handoff 整理当前任务，保存精简交接记录，并给我一段可粘贴到新聊天的接续提示。"
 
 policy:
