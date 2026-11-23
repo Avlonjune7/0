@@ -8,6 +8,8 @@ copies changed files, removes tracked files deleted from the source, and
 commits skill changes before pushing main. It does not force-push.
 .PARAMETER SkillsRoot
 Directory containing the five 0-* and two me-* skill folders.
+.PARAMETER Skill
+Optional subset of skill names to synchronize (defaults to all seven).
 .PARAMETER Message
 Git commit message for the synchronized changes.
 .PARAMETER NoPush
@@ -18,6 +20,7 @@ Show files that would change. Leaves the worktree, index and remote alone.
 [CmdletBinding()]
 param(
     [string]$SkillsRoot = 'D:\DATA\cc switch\skills',
+    [string[]]$Skill,
     [ValidateNotNullOrEmpty()][string]$Message = 'Sync 0 skills',
     [switch]$NoPush,
     [switch]$Preview
@@ -27,9 +30,20 @@ $ErrorActionPreference = 'Stop'
 $PSNativeCommandUseErrorActionPreference = $false
 $repo = (Get-Item -LiteralPath (Split-Path -Parent $PSScriptRoot)).FullName
 $git = (Get-Command git -CommandType Application | Select-Object -First 1).Source
-$skillNames = @('0-setup', '0-plan', '0-build', '0-review', '0-handoff', 'me-ui', 'me-tools')
+$allSkillNames = @('0-setup', '0-plan', '0-build', '0-review', '0-handoff', 'me-ui', 'me-tools')
+if ($Skill -and $Skill.Count) {
+    foreach ($s in $Skill) {
+        if ($allSkillNames -cnotcontains $s) {
+            throw "Unknown skill name: $s. Allowed: $($allSkillNames -join ', ')"
+        }
+    }
+    $skillNames = @($Skill | Select-Object -Unique)
+} else {
+    $skillNames = $allSkillNames
+}
 $scope = @($skillNames | ForEach-Object { "skills/$_" })
 $pathComparison = [StringComparison]::OrdinalIgnoreCase
+$checkedDirs = [Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
 
 function Invoke-RepoGit {
     param([string[]]$GitArgs, [int[]]$Accepted = @(0))
@@ -71,6 +85,17 @@ function Assert-RegularItem($Item) {
     }
 }
 
+function Test-FilesIdentical([IO.FileInfo]$SourceFile, [string]$TargetPath) {
+    $targetInfo = [IO.FileInfo]::new($TargetPath)
+    if ($SourceFile.Length -ne $targetInfo.Length) { return $false }
+    $a = [IO.File]::ReadAllBytes($SourceFile.FullName)
+    $b = [IO.File]::ReadAllBytes($TargetPath)
+    for ($i = 0; $i -lt $a.Length; $i++) {
+        if ($a[$i] -ne $b[$i]) { return $false }
+    }
+    return $true
+}
+
 function Get-SourceFiles([IO.DirectoryInfo]$Directory) {
     foreach ($item in Get-ChildItem -LiteralPath $Directory.FullName -Force) {
         Assert-RegularItem $item
@@ -87,7 +112,7 @@ function Get-SourceFiles([IO.DirectoryInfo]$Directory) {
     }
 }
 
-function Get-TargetFile([string]$Relative) {
+function Get-TargetFile([string]$Relative, [switch]$UseCache) {
     $target = $repo
     $parts = $Relative.Split('/')
     for ($i = 0; $i -lt $parts.Count; $i++) {
@@ -95,20 +120,23 @@ function Get-TargetFile([string]$Relative) {
             throw "Unsafe relative path: $Relative"
         }
         $target = Join-Path $target $parts[$i]
+        $isDirLevel = ($i -lt $parts.Count - 1)
+        if ($UseCache -and $isDirLevel -and $checkedDirs.Contains($target)) { continue }
         $item = Get-ExistingItem $target
         if ($null -eq $item) { continue }
         Assert-RegularItem $item
-        if ($item.PSIsContainer -ne ($i -lt $parts.Count - 1)) {
+        if ($item.PSIsContainer -ne $isDirLevel) {
             throw "A file or directory blocks the expected path: $target"
         }
+        if ($UseCache -and $isDirLevel) { $null = $checkedDirs.Add($target) }
     }
     return $target
 }
 
-$top = (Invoke-RepoGit @('rev-parse', '--show-toplevel')).Output[0]
-if (-not [IO.Path]::GetFullPath($top).Equals($repo, $pathComparison)) { throw 'Run this script from its own Git checkout.' }
-if ((Invoke-RepoGit @('branch', '--show-current')).Output[0] -ne 'main') { throw 'Switch this checkout to main before syncing.' }
-$null = Invoke-RepoGit @('rev-parse', '--verify', 'HEAD')
+$revInfo = (Invoke-RepoGit @('rev-parse', '--show-toplevel', '--abbrev-ref', 'HEAD', '--verify', 'HEAD')).Output
+if (-not [IO.Path]::GetFullPath($revInfo[0]).Equals($repo, $pathComparison)) { throw 'Run this script from its own Git checkout.' }
+if ($revInfo[1] -ne 'main') { throw 'Switch this checkout to main before syncing.' }
+$localHead = $revInfo[2]
 $null = Invoke-RepoGit @('remote', 'get-url', 'origin')
 Assert-Clean
 
@@ -158,17 +186,17 @@ $changes = @(
             $suffix = $file.FullName.Substring($source.FullName.Length + 1).Replace('\', '/')
             $relative = "skills/$name/$suffix"
             $sourcePaths[$relative] = $true
-            $target = Get-TargetFile $relative
+            $target = Get-TargetFile $relative -UseCache
             if ([IO.File]::Exists($target)) {
                 if (-not $tracked.ContainsKey($relative)) { throw "An ignored or untracked file blocks synchronization: $relative" }
-                if ((Get-FileHash -LiteralPath $file.FullName).Hash -eq (Get-FileHash -LiteralPath $target).Hash) { continue }
+                if (Test-FilesIdentical $file $target) { continue }
             }
             [pscustomobject]@{ Action = 'Copy'; Relative = $relative; Source = $file.FullName; Target = $target }
         }
     }
     foreach ($relative in $tracked.Keys) {
         if (-not $sourcePaths.ContainsKey($relative)) {
-            [pscustomobject]@{ Action = 'Remove'; Relative = $relative; Source = $null; Target = (Get-TargetFile $relative) }
+            [pscustomobject]@{ Action = 'Remove'; Relative = $relative; Source = $null; Target = (Get-TargetFile $relative -UseCache) }
         }
     }
 )
@@ -179,16 +207,25 @@ if ($Preview) {
     return
 }
 
+$remoteHead = $null
 if (-not $NoPush) {
-    $remote = Invoke-RepoGit @('ls-remote', '--exit-code', '--heads', 'origin', 'refs/heads/main') @(0, 2)
-    if ($remote.Code -eq 0) {
-        $null = Invoke-RepoGit @('fetch', '--no-tags', 'origin', 'refs/heads/main')
-        if ((Invoke-RepoGit @('merge-base', '--is-ancestor', 'FETCH_HEAD', 'HEAD') @(0, 1)).Code -ne 0) {
+    $prevEap = $ErrorActionPreference
+    try {
+        $ErrorActionPreference = 'Continue'
+        $fetchOut = @(& $git --no-optional-locks -C $repo fetch --no-tags --quiet origin refs/heads/main 2>&1)
+        $fetchCode = $LASTEXITCODE
+    } finally { $ErrorActionPreference = $prevEap }
+    if ($fetchCode -eq 0) {
+        $remoteHead = (Invoke-RepoGit @('rev-parse', '--verify', 'FETCH_HEAD')).Output[0]
+        if ($remoteHead -ne $localHead -and (Invoke-RepoGit @('merge-base', '--is-ancestor', $remoteHead, $localHead) @(0, 1)).Code -ne 0) {
             throw 'origin/main has commits absent from this checkout. Integrate them before syncing.'
         }
+    } elseif ($fetchCode -eq 128 -and (($fetchOut -join "`n") -match "couldn't find remote ref")) {
+        $remoteHead = $null
+    } else {
+        throw "git fetch failed (exit $fetchCode): $($fetchOut -join ' ')"
     }
 }
-Assert-Clean
 
 $added = @($changes | Where-Object { $_.Action -eq 'Copy' -and -not $tracked.ContainsKey($_.Relative) })
 if ($added.Count) {
@@ -208,19 +245,24 @@ foreach ($change in $changes) {
 
 if ($changes.Count) {
     $null = Invoke-RepoGit (@('add', '-A', '--') + $scope)
-    $previousEncoding = [Console]::OutputEncoding
-    try {
-        [Console]::OutputEncoding = [Text.UTF8Encoding]::new($false)
-        $indexedOutput = (Invoke-RepoGit (@('ls-files', '-z', '--') + $scope)).Output -join "`n"
-    } finally { [Console]::OutputEncoding = $previousEncoding }
-    $indexed = @{}
-    foreach ($path in $indexedOutput.Split([char[]]@([char]0), [StringSplitOptions]::RemoveEmptyEntries)) { $indexed[$path] = $true }
-    $missing = @($changes | Where-Object { $_.Action -eq 'Copy' -and -not $indexed.ContainsKey($_.Relative) } | ForEach-Object { $_.Relative })
-    if ($missing.Count) {
-        throw ('A planned skill file was not staged (check nested .gitignore rules): ' + ($missing -join ', '))
+    if ($added.Count) {
+        $previousEncoding = [Console]::OutputEncoding
+        try {
+            [Console]::OutputEncoding = [Text.UTF8Encoding]::new($false)
+            $indexedOutput = (Invoke-RepoGit (@('ls-files', '-z', '--') + $scope)).Output -join "`n"
+        } finally { [Console]::OutputEncoding = $previousEncoding }
+        $indexed = @{}
+        foreach ($path in $indexedOutput.Split([char[]]@([char]0), [StringSplitOptions]::RemoveEmptyEntries)) { $indexed[$path] = $true }
+        $missing = @($added | Where-Object { -not $indexed.ContainsKey($_.Relative) } | ForEach-Object { $_.Relative })
+        if ($missing.Count) {
+            throw ('A planned skill file was not staged (check nested .gitignore rules): ' + ($missing -join ', '))
+        }
     }
     if ((Invoke-RepoGit (@('diff', '--cached', '--quiet', '--') + $scope) @(0, 1)).Code -eq 1) {
         (Invoke-RepoGit (@('commit', '--only', '-m', $Message, '--') + $scope)).Output
+        $localHead = (Invoke-RepoGit @('rev-parse', '--verify', 'HEAD')).Output[0]
     }
 }
-if (-not $NoPush) { (Invoke-RepoGit @('push', 'origin', 'refs/heads/main:refs/heads/main')).Output }
+if (-not $NoPush -and ($remoteHead -ne $localHead)) {
+    (Invoke-RepoGit @('push', 'origin', 'refs/heads/main:refs/heads/main')).Output
+}
