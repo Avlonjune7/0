@@ -158,6 +158,22 @@ class CollectChangesTest(unittest.TestCase):
         result = self.collect(status=1, env={**os.environ, "PATH": ""})
         self.assertIn("git", result["error"].lower())
 
+    def test_ignores_inherited_git_dir_and_work_tree_env(self):
+        other = self.root.parent / "other-repo"
+        other.mkdir()
+        subprocess.run(["git", "-C", str(other), "init", "-b", "main"], check=True, capture_output=True)
+        (other / "foreign.txt").write_text("foreign", encoding="utf-8")
+        self.init()
+        self.write("local.txt", "local")
+        env = {
+            **os.environ,
+            "GIT_DIR": str(other / ".git"),
+            "GIT_WORK_TREE": str(other),
+        }
+        result = self.collect(env=env)
+        self.assertEqual(result["untracked"], ["local.txt"])
+        self.assertNotIn("foreign.txt", result["untracked"])
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -27,7 +27,7 @@ disable-model-invocation: true
 
 ## 2. 保存
 
-位置按优先级：用户指定 → 已有任务文档中的交接段（保留原有内容）→ Git 仓库内项目根 `.handoff/<日期>-<主题>.md`（未被忽略时追加到 `.git/info/exclude`，不改项目 `.gitignore`）→ 系统临时目录（无 Git 仓库时直接使用）。
+位置按优先级：用户指定 → 已有任务文档中的交接段（保留原有内容）→ Git 仓库内项目根 `.handoff/<日期>-<主题>.md`（未被忽略时通过 `git rev-parse --git-path info/exclude` 定位排除文件追加，并用 `git check-ignore` 核验已忽略，兼容 worktree 且不改 `.gitignore`）→ 系统临时目录（无 Git 仓库时直接使用）。
 
 按需记录：
 

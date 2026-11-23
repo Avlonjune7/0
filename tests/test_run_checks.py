@@ -142,6 +142,26 @@ while not peer_marker.exists():
         self.assertEqual(status, 2)
         self.assertEqual(report["status"], "invalid_input")
 
+    def test_timeout_terminates_descendant_process_tree(self):
+        marker = self.root / "descendant-wrote.txt"
+        launcher = (
+            "import pathlib, subprocess, sys, time; "
+            "child = subprocess.Popen([sys.executable, '-B', '-c', "
+            "\"import pathlib, sys, time; time.sleep(1.5); pathlib.Path(sys.argv[1]).write_text('late')\", "
+            "sys.argv[1]]); "
+            "child.wait()"
+        )
+        status, report = self.invoke([
+            self.check("tree", launcher, str(marker), timeout_sec=0.4),
+        ])
+        self.assertEqual(status, 1)
+        result, = report["results"]
+        self.assertTrue(result["timed_out"])
+        self.assertLess(result["duration_ms"], 3500)
+        import time
+        time.sleep(1.8)
+        self.assertFalse(marker.exists())
+
 
 if __name__ == "__main__":
     unittest.main()

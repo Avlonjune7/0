@@ -42,22 +42,43 @@ def prose_lines(content):
     """Return prose aligned to the input line numbers."""
     lines = []
     fence = None
+    in_comment = False
     for line in content.splitlines():
-        marker = FENCE.match(line)
         if fence:
+            marker = FENCE.match(line)
             if marker and marker[1][0] == fence[0] and len(marker[1]) >= len(fence) and not marker[2].strip():
                 fence = None
             lines.append("")
-        elif marker:
+            continue
+        if in_comment:
+            end = line.find("-->")
+            if end == -1:
+                lines.append("")
+                continue
+            line = " " * (end + 3) + line[end + 3:]
+            in_comment = False
+        marker = FENCE.match(line)
+        if marker:
             fence = marker[1]
             lines.append("")
-        elif line.startswith(("    ", "\t")):
+            continue
+        if line.startswith(("    ", "\t")):
             lines.append("")
-        else:
-            lines.append(line)
-    return INLINE_CODE_OR_COMMENT.sub(
-        lambda match: match.group() if match[1] else blank(match), "\n".join(lines)
-    ).split("\n")
+            continue
+        cleaned = []
+        pos = 0
+        for match in INLINE_CODE_OR_COMMENT.finditer(line):
+            cleaned.append(line[pos:match.start()])
+            if match[1]:
+                cleaned.append(match.group())
+            else:
+                cleaned.append(blank(match))
+                if not match.group().endswith("-->"):
+                    in_comment = True
+            pos = match.end()
+        cleaned.append(line[pos:])
+        lines.append("".join(cleaned))
+    return lines
 
 
 def anchors(lines):

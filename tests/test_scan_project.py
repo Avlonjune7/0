@@ -126,6 +126,27 @@ class ScanProjectTests(unittest.TestCase):
         self.assertEqual(self.scan(self.root / "missing").returncode, 2)
         self.assertEqual(self.scan(None, "--max-files", "0").returncode, 2)
 
+    def test_ignores_inherited_git_dir_and_work_tree_env(self):
+        import os
+
+        other = self.workspace / "other-repo"
+        other.mkdir()
+        subprocess.run(["git", "-C", str(other), "init", "-b", "main"], check=True, capture_output=True)
+        (other / "foreign.md").write_text("foreign", encoding="utf-8")
+        (self.root / "local.md").write_text("local", encoding="utf-8")
+        env = {
+            **os.environ,
+            "GIT_DIR": str(other / ".git"),
+            "GIT_WORK_TREE": str(other),
+        }
+        process = subprocess.run(
+            [sys.executable, "-B", str(SCRIPT), "--root", str(self.root)],
+            capture_output=True, text=True, encoding="utf-8", env=env, check=False,
+        )
+        self.assertEqual(process.returncode, 0, process.stderr)
+        report = json.loads(process.stdout)
+        self.assertEqual(report["documents"], ["local.md"])
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -8,6 +8,7 @@ import json
 import math
 import os
 from pathlib import Path
+import signal
 import subprocess
 import threading
 import time
@@ -110,6 +111,106 @@ def drain_output(stream, output_tail, state):
         pass
 
 
+def _setup_win_job(process):
+    if os.name != "nt":
+        return None, None
+    try:
+        import ctypes
+        from ctypes import wintypes
+
+        kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+
+        class IO_COUNTERS(ctypes.Structure):
+            _fields_ = [
+                ("ReadOperationCount", ctypes.c_uint64),
+                ("WriteOperationCount", ctypes.c_uint64),
+                ("OtherOperationCount", ctypes.c_uint64),
+                ("ReadTransferCount", ctypes.c_uint64),
+                ("WriteTransferCount", ctypes.c_uint64),
+                ("OtherTransferCount", ctypes.c_uint64),
+            ]
+
+        class JOBOBJECT_BASIC_LIMIT_INFORMATION(ctypes.Structure):
+            _fields_ = [
+                ("PerProcessUserTimeLimit", ctypes.c_int64),
+                ("PerJobUserTimeLimit", ctypes.c_int64),
+                ("LimitFlags", wintypes.DWORD),
+                ("MinimumWorkingSetSize", ctypes.c_size_t),
+                ("MaximumWorkingSetSize", ctypes.c_size_t),
+                ("ActiveProcessLimit", wintypes.DWORD),
+                ("Affinity", ctypes.c_size_t),
+                ("PriorityClass", wintypes.DWORD),
+                ("SchedulingClass", wintypes.DWORD),
+            ]
+
+        class JOBOBJECT_EXTENDED_LIMIT_INFORMATION(ctypes.Structure):
+            _fields_ = [
+                ("BasicLimitInformation", JOBOBJECT_BASIC_LIMIT_INFORMATION),
+                ("IoInfo", IO_COUNTERS),
+                ("ProcessMemoryLimit", ctypes.c_size_t),
+                ("JobMemoryLimit", ctypes.c_size_t),
+                ("PeakProcessMemoryUsed", ctypes.c_size_t),
+                ("PeakJobMemoryUsed", ctypes.c_size_t),
+            ]
+
+        kernel32.CreateJobObjectW.restype = wintypes.HANDLE
+        kernel32.CreateJobObjectW.argtypes = [wintypes.LPVOID, wintypes.LPCWSTR]
+        kernel32.SetInformationJobObject.restype = wintypes.BOOL
+        kernel32.SetInformationJobObject.argtypes = [
+            wintypes.HANDLE, ctypes.c_int, wintypes.LPVOID, wintypes.DWORD,
+        ]
+        kernel32.AssignProcessToJobObject.restype = wintypes.BOOL
+        kernel32.AssignProcessToJobObject.argtypes = [wintypes.HANDLE, wintypes.HANDLE]
+        kernel32.TerminateJobObject.restype = wintypes.BOOL
+        kernel32.TerminateJobObject.argtypes = [wintypes.HANDLE, wintypes.UINT]
+        kernel32.CloseHandle.restype = wintypes.BOOL
+        kernel32.CloseHandle.argtypes = [wintypes.HANDLE]
+
+        job = kernel32.CreateJobObjectW(None, None)
+        if not job:
+            return None, None
+        info = JOBOBJECT_EXTENDED_LIMIT_INFORMATION()
+        info.BasicLimitInformation.LimitFlags = 0x2000  # JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE
+        if not kernel32.SetInformationJobObject(job, 9, ctypes.byref(info), ctypes.sizeof(info)):
+            kernel32.CloseHandle(job)
+            return None, None
+        if not kernel32.AssignProcessToJobObject(job, int(process._handle)):
+            kernel32.CloseHandle(job)
+            return None, None
+        return job, kernel32
+    except Exception:
+        return None, None
+
+
+def terminate_process_tree(process, win_job=None, kernel32=None):
+    if os.name == "nt":
+        if win_job and kernel32 is not None:
+            try:
+                kernel32.TerminateJobObject(win_job, 1)
+            except Exception:
+                pass
+        try:
+            subprocess.run(
+                ["taskkill", "/F", "/T", "/PID", str(process.pid)],
+                stdin=subprocess.DEVNULL,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                check=False,
+                timeout=5,
+            )
+        except (OSError, subprocess.TimeoutExpired):
+            pass
+    else:
+        try:
+            os.killpg(process.pid, signal.SIGKILL)
+        except (OSError, ProcessLookupError):
+            pass
+    try:
+        process.kill()
+    except OSError:
+        pass
+
+
 def run_check(check):
     start = time.monotonic()
     output_tail = bytearray()
@@ -118,18 +219,22 @@ def run_check(check):
     launch_error = None
     timed_out = False
 
+    popen_kwargs = {
+        "cwd": check.cwd,
+        "stdin": subprocess.DEVNULL,
+        "stdout": subprocess.PIPE,
+        "stderr": subprocess.STDOUT,
+        "shell": False,
+    }
+    if os.name != "nt":
+        popen_kwargs["start_new_session"] = True
+
     try:
-        process = subprocess.Popen(
-            check.argv,
-            cwd=check.cwd,
-            stdin=subprocess.DEVNULL,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            shell=False,
-        )
+        process = subprocess.Popen(check.argv, **popen_kwargs)
     except OSError as exc:
         launch_error = str(exc)
     else:
+        win_job, kernel32 = _setup_win_job(process)
         reader = threading.Thread(
             target=drain_output,
             args=(process.stdout, output_tail, state),
@@ -140,12 +245,22 @@ def run_check(check):
             exit_code = process.wait(timeout=check.timeout_sec)
         except subprocess.TimeoutExpired:
             timed_out = True
-            process.kill()
+            terminate_process_tree(process, win_job=win_job, kernel32=kernel32)
             try:
                 process.wait(timeout=5)
             except subprocess.TimeoutExpired:
                 pass
         finally:
+            if win_job and kernel32 is not None:
+                try:
+                    kernel32.CloseHandle(win_job)
+                except Exception:
+                    pass
+            if timed_out and process.stdout is not None:
+                try:
+                    process.stdout.close()
+                except OSError:
+                    pass
             reader.join(timeout=1 if timed_out else None)
             if process.stdout is not None:
                 try:

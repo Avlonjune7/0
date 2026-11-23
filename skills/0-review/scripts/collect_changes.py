@@ -8,11 +8,28 @@ import subprocess
 import sys
 
 
+GIT_REPO_ENV_VARS = {
+    "GIT_DIR",
+    "GIT_WORK_TREE",
+    "GIT_INDEX_FILE",
+    "GIT_COMMON_DIR",
+    "GIT_OBJECT_DIRECTORY",
+    "GIT_ALTERNATE_OBJECT_DIRECTORIES",
+}
+
+
+def clean_git_env():
+    env = {k: v for k, v in os.environ.items() if k not in GIT_REPO_ENV_VARS}
+    env["GIT_OPTIONAL_LOCKS"] = "0"
+    env["LC_ALL"] = "C"
+    return env
+
+
 def run_git(root, *arguments, check=True):
     try:
         result = subprocess.run(
             ["git", "-c", "core.fsmonitor=false", "-C", str(root), *arguments],
-            env={**os.environ, "GIT_OPTIONAL_LOCKS": "0", "LC_ALL": "C"},
+            env=clean_git_env(),
             capture_output=True,
             check=False,
         )

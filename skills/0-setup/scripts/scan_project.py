@@ -86,15 +86,28 @@ def walk_paths(root):
                 yield path.relative_to(root)
 
 
+GIT_REPO_ENV_VARS = {
+    "GIT_DIR",
+    "GIT_WORK_TREE",
+    "GIT_INDEX_FILE",
+    "GIT_COMMON_DIR",
+    "GIT_OBJECT_DIRECTORY",
+    "GIT_ALTERNATE_OBJECT_DIRECTORIES",
+}
+
+
 def scan(root, max_files):
     info = entry_stat(root)
     if info is None or not stat.S_ISDIR(info.st_mode):
         raise ValueError(f"not a regular directory: {root}")
     exclusions = [f"--exclude={directory}/" for directory in sorted(SKIP_DIRECTORIES)]
+    git_env = {k: v for k, v in os.environ.items() if k not in GIT_REPO_ENV_VARS}
+    git_env["GIT_OPTIONAL_LOCKS"] = "0"
     try:
         listing = subprocess.run(
             ["git", "-C", str(root), "ls-files", "-z", "--cached", "--others", "--exclude-standard",
              *exclusions, "--"],
+            env=git_env,
             capture_output=True,
             check=False,
         )

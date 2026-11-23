@@ -48,6 +48,16 @@ function Invoke-RepoGit {
 function Assert-Clean {
     $status = (Invoke-RepoGit @('status', '--porcelain=v1', '--untracked-files=all')).Output
     if ($status.Count) { throw 'The checkout has local changes. Commit or move them before syncing.' }
+    $previousEncoding = [Console]::OutputEncoding
+    try {
+        [Console]::OutputEncoding = [Text.UTF8Encoding]::new($false)
+        $indexFlags = (Invoke-RepoGit (@('ls-files', '-v', '-z', '--') + $scope)).Output -join "`n"
+    } finally { [Console]::OutputEncoding = $previousEncoding }
+    foreach ($entry in $indexFlags.Split([char[]]@([char]0), [StringSplitOptions]::RemoveEmptyEntries)) {
+        if ($entry.Length -ge 2 -and $entry[0] -cne 'H') {
+            throw "A tracked skill file has skip-worktree or assume-unchanged set: $($entry.Substring(2))"
+        }
+    }
 }
 
 function Get-ExistingItem([string]$Path) {
@@ -198,6 +208,17 @@ foreach ($change in $changes) {
 
 if ($changes.Count) {
     $null = Invoke-RepoGit (@('add', '-A', '--') + $scope)
+    $previousEncoding = [Console]::OutputEncoding
+    try {
+        [Console]::OutputEncoding = [Text.UTF8Encoding]::new($false)
+        $indexedOutput = (Invoke-RepoGit (@('ls-files', '-z', '--') + $scope)).Output -join "`n"
+    } finally { [Console]::OutputEncoding = $previousEncoding }
+    $indexed = @{}
+    foreach ($path in $indexedOutput.Split([char[]]@([char]0), [StringSplitOptions]::RemoveEmptyEntries)) { $indexed[$path] = $true }
+    $missing = @($changes | Where-Object { $_.Action -eq 'Copy' -and -not $indexed.ContainsKey($_.Relative) } | ForEach-Object { $_.Relative })
+    if ($missing.Count) {
+        throw ('A planned skill file was not staged (check nested .gitignore rules): ' + ($missing -join ', '))
+    }
     if ((Invoke-RepoGit (@('diff', '--cached', '--quiet', '--') + $scope) @(0, 1)).Code -eq 1) {
         (Invoke-RepoGit (@('commit', '--only', '-m', $Message, '--') + $scope)).Output
     }

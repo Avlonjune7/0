@@ -118,6 +118,12 @@ class CheckLinksTest(unittest.TestCase):
         self.assertEqual(report["input_errors"][0]["file"], "invalid.md")
         self.assertEqual(report["unverified"][0]["reason"], "target Markdown could not be read as UTF-8")
 
+    def test_fence_inside_html_comment_does_not_hide_following_broken_links(self):
+        self.write("README.md", "<!--\n```\n-->\n[Broken](missing.md)\n")
+        code, report = self.run_checker("README.md")
+        self.assertEqual(code, 1, report)
+        self.assertEqual([item["target"] for item in report["broken"]], ["missing.md"])
+
 
 if __name__ == "__main__":
     unittest.main()

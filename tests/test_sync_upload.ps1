@@ -128,6 +128,28 @@ try {
     Assert-Rejected { & $script -SkillsRoot $source -NoPush } 'private-looking file'
     Remove-Item -LiteralPath $private
 
+    $skipTarget = Join-Path $checkout 'skills/0-plan/SKILL.md'
+    $savedSkipTarget = [IO.File]::ReadAllText($skipTarget)
+    $null = Git $checkout @('update-index', '--skip-worktree', '--', 'skills/0-plan/SKILL.md')
+    [IO.File]::WriteAllText($skipTarget, 'Local skip-worktree edit')
+    [IO.File]::AppendAllText((Join-Path $source '0-plan/SKILL.md'), "`n# Source change`n")
+    Assert-Rejected { & $script -SkillsRoot $source -NoPush } 'skip-worktree'
+    Assert ([IO.File]::ReadAllText($skipTarget) -eq 'Local skip-worktree edit') 'skip-worktree file must not be overwritten.'
+    $null = Git $checkout @('update-index', '--no-skip-worktree', '--', 'skills/0-plan/SKILL.md')
+    [IO.File]::WriteAllText($skipTarget, $savedSkipTarget)
+    [IO.File]::WriteAllText((Join-Path $source '0-plan/SKILL.md'), $savedSkipTarget)
+
+    $nestedIgnore = Join-Path $source '0-plan/.gitignore'
+    $nestedHidden = Join-Path $source '0-plan/ignored.txt'
+    [IO.File]::WriteAllText($nestedIgnore, "ignored.txt`n")
+    [IO.File]::WriteAllText($nestedHidden, 'Should not be silently omitted')
+    Assert-Rejected { & $script -SkillsRoot $source -NoPush } 'not staged'
+    Assert ((Git $checkout @('rev-parse', 'HEAD')) -eq $second) 'Nested .gitignore omission must not commit.'
+    $null = Git $checkout @('reset', '--hard', 'HEAD')
+    $null = Git $checkout @('clean', '-fd')
+    Remove-Item -LiteralPath $nestedIgnore
+    Remove-Item -LiteralPath $nestedHidden
+
     $other = Join-Path $fixture 'other checkout'
     $null = Git $fixture @('clone', '--branch', 'main', $remote, $other)
     $null = Git $other @('config', 'user.name', 'Sync Test')
