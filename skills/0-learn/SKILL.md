@@ -24,8 +24,8 @@ disable-model-invocation: true
 
 | 经验类型 | 权威落点 | 写法要求 |
 | --- | --- | --- |
-| 全局工具、CLI、环境排障、构建部署 | `~/.gemini/config/skills/me-tools/SKILL.md` | 1–2 行精简条目；超 40–50 行时拆 `references/` |
-| 全局 UI、设计系统、页面验收 | `~/.gemini/config/skills/me-ui/SKILL.md` 或其 `references/` | 沿用现有路由结构 |
+| 全局工具、CLI、环境排障、构建部署 | `D:\DATA\cc switch\skills\me-tools\SKILL.md` | 1–2 行精简条目；超 40–50 行时拆 `references/` |
+| 全局 UI、设计系统、页面验收 | `D:\DATA\cc switch\skills\me-ui\SKILL.md` 或其 `references/` | 沿用现有路由结构 |
 | 全局沟通风格、通用代码/Git 纪律 | 建议更新用户全局规则 | 说明建议改动，由用户决定 |
 | 单项目架构约束、红线 | 项目根 `AGENTS.md` 或 `GEMINI.md` | 上游开源仓已有 `AGENTS.md` 时写 `GEMINI.md` 防冲突 |
 | 单项目重大技术决定 | `docs/decisions.md` | 遵循 `0-setup` 追加格式，不改写历史 |
@@ -43,4 +43,4 @@ disable-model-invocation: true
 
 1. 输出精简提案：列出每条经验的**目标文件、精确增删内容、选择该落点的理由**。
 2. 等待用户明确确认（或删改意见）后再执行文件写入。
-3. 写入后复核目标文件格式、无重复条目与无敏感信息；完成后即停止，不自动提交或推送。
+3. 写入后复核目标文件格式、无重复条目与无敏感信息；改动 me-* 时提醒用户通过 cc-switch 同步到各 Agent，完成后即停止，不自动提交或推送。
