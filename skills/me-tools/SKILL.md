@@ -7,7 +7,7 @@ description: 应用个人工具偏好，适用于 CLI 或技能安装、Windows 
 
 ## 工具选择
 
-- 查文档优先已有专用 CLI 或 Context7；临时 Python 环境用 `uv` / `uvx`。
+- 查文档优先已有专用 CLI 或 Context7；独立 `.py` 脚本直接用 `python`（旧进程 PATH 未刷新时回退 `uv run python`），临时 Python 环境用 `uv` / `uvx`。
 - 超长日志、测试或差异输出可按支持情况用 RTK 压缩（保留退出码与关键错误）；精确诊断或完整审查时读原始输出。
 - 修改脚本且工具可用时定向检查：sh/bash 用 ShellCheck，PowerShell 用 PSScriptAnalyzer，GitHub Actions 用 actionlint。
 - 缺少指定工具或技能时降级复用项目/官方能力并说明缺口；安装新工具或修改已安装技能须有明确授权，安装同名技能前先确认可否复用。反复执行的稳定步骤按需固化到脚本并记入项目 README。
