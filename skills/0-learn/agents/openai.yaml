@@ -1,0 +1,7 @@
+interface:
+  display_name: "0-learn 经验沉淀"
+  short_description: "复盘本次纠正与排障根因，按严格落点路由提议沉淀到 me-* 或项目文档"
+  default_prompt: "使用 $0-learn 复盘当前会话中已验证的经验与纠正，按落点路由给出精简沉淀提案。"
+
+policy:
+  allow_implicit_invocation: false

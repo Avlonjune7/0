@@ -7,9 +7,9 @@ The default source is D:\DATA\cc switch\skills. The command
 copies changed files, removes tracked files deleted from the source, and
 commits skill changes before pushing main. It does not force-push.
 .PARAMETER SkillsRoot
-Directory containing the five 0-* and two me-* skill folders.
+Directory containing the six 0-* and two me-* skill folders.
 .PARAMETER Skill
-Optional subset of skill names to synchronize (defaults to all seven).
+Optional subset of skill names to synchronize (defaults to all eight).
 .PARAMETER Message
 Git commit message for the synchronized changes.
 .PARAMETER NoPush
@@ -30,7 +30,7 @@ $ErrorActionPreference = 'Stop'
 $PSNativeCommandUseErrorActionPreference = $false
 $repo = (Get-Item -LiteralPath (Split-Path -Parent $PSScriptRoot)).FullName
 $git = (Get-Command git -CommandType Application | Select-Object -First 1).Source
-$allSkillNames = @('0-setup', '0-plan', '0-build', '0-review', '0-handoff', 'me-ui', 'me-tools')
+$allSkillNames = @('0-setup', '0-plan', '0-build', '0-review', '0-handoff', '0-learn', 'me-ui', 'me-tools')
 if ($Skill -and $Skill.Count) {
     foreach ($s in $Skill) {
         if ($allSkillNames -cnotcontains $s) {
