@@ -13,20 +13,20 @@ disable-model-invocation: true
 未给路径时用当前工作目录；目标不明确先定位。默认**轻量接入**：
 
 - **轻量接入（默认）**：复用或接入本地 Git，补齐 `AGENTS.md`、`docs/workflow.md`、根 `README`；只读配置、入口、契约和已有文档，不全量扫描源码。
-- **深度建档**：明确要求全库模块文档或接手缺少说明的大中型代码库时启用，按 [deep-scan.md](references/deep-scan.md) 执行。
+- **深度建档**：明确要求全库模块文档或接手缺少说明的大中型代码库时启用，按 [setup-guide.md](references/setup-guide.md#3-深度建档大中型代码库按需) 执行。
 - **漂移核对与同步**：检查或同步过期文档时，按 [doc-sync.md](references/doc-sync.md) 执行，跳过初始化与 Git 接入。
 
 说明范围后直接写入可逆文档；业务代码、依赖、提交、推送、部署和远端接入均不默认执行。
 
 ## 1. 识别现状
 
-- 先运行 [scan_project.py](scripts/scan_project.py)（`--help` 查看参数）列出文档、配置和候选源码目录，再按 [discovery.md](references/discovery.md) 核对适用指令、已有改动和项目入口。
+- 先运行 [scan_project.py](scripts/scan_project.py)（`--help` 查看参数）列出文档、配置和候选源码目录，再按 [setup-guide.md](references/setup-guide.md#1-现状调查) 核对适用指令、已有改动和项目入口。
 - 完整初始化时缺少本地 Git、仓库边界存疑或要求接入远端，读 [git-setup.md](references/git-setup.md)；已有仓库和 worktree 直接复用。
 - 列出工作清单：模式、需补齐的文档、复用的已有来源、尚不能确认的事实。已有规格、计划、架构和 tracker 原样复用，不为套用默认布局而改名或搬迁。
 
 ## 2. 约定布局
 
-只创建有内容的文件。文档职责、模块文档写法和 `DESIGN.md` 规则见 [documentation.md](references/documentation.md)。
+只创建有内容的文件。文档职责、模块文档写法和 `DESIGN.md` 规则见 [setup-guide.md](references/setup-guide.md#2-文档职责与写法)。
 
 ```text
 project/
@@ -49,7 +49,7 @@ project/
 ## 3. 建立事实依据
 
 - **轻量接入**：只写已核实的入口与边界，不推测未读的实现细节。
-- **深度建档**：完整阅读将要描述的模块；阈值和分块方式见 deep-scan.md。
+- **深度建档**：完整阅读将要描述的模块；阈值和分块方式见 [setup-guide.md](references/setup-guide.md#3-深度建档大中型代码库按需)。
 - 读取受限、依赖缺失或调查失败时，继续独立部分，并把对应范围标为未完成。
 - **空项目**：只记录用户已确认的目标；缺少关键用途时询问，不虚构技术栈、命令、模块或进度。
 
