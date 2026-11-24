@@ -90,10 +90,7 @@ function Test-FilesIdentical([IO.FileInfo]$SourceFile, [string]$TargetPath) {
     if ($SourceFile.Length -ne $targetInfo.Length) { return $false }
     $a = [IO.File]::ReadAllBytes($SourceFile.FullName)
     $b = [IO.File]::ReadAllBytes($TargetPath)
-    for ($i = 0; $i -lt $a.Length; $i++) {
-        if ($a[$i] -ne $b[$i]) { return $false }
-    }
-    return $true
+    return [System.Linq.Enumerable]::SequenceEqual($a, $b)
 }
 
 function Get-SourceFiles([IO.DirectoryInfo]$Directory) {
