@@ -104,17 +104,27 @@ def drain_output(stream, output_tail, state):
     try:
         while chunk := stream.read1(TAIL_BYTES):
             output_tail.extend(chunk)
-            if len(output_tail) > TAIL_BYTES:
+            if len(output_tail) >= TAIL_BYTES * 2:
                 del output_tail[:-TAIL_BYTES]
                 state["truncated"] = True
+        if len(output_tail) > TAIL_BYTES:
+            del output_tail[:-TAIL_BYTES]
+            state["truncated"] = True
     except (OSError, ValueError):
         pass
 
 
-def _setup_win_job(process):
-    if os.name != "nt":
-        return None, None
-    try:
+_WIN_JOB_LOCK = threading.Lock()
+_WIN_JOB_API = None
+
+
+def _get_win_job_api():
+    global _WIN_JOB_API
+    if _WIN_JOB_API is not None:
+        return _WIN_JOB_API
+    with _WIN_JOB_LOCK:
+        if _WIN_JOB_API is not None:
+            return _WIN_JOB_API
         import ctypes
         from ctypes import wintypes
 
@@ -166,10 +176,19 @@ def _setup_win_job(process):
         kernel32.CloseHandle.restype = wintypes.BOOL
         kernel32.CloseHandle.argtypes = [wintypes.HANDLE]
 
+        _WIN_JOB_API = (ctypes, kernel32, JOBOBJECT_EXTENDED_LIMIT_INFORMATION)
+        return _WIN_JOB_API
+
+
+def _setup_win_job(process):
+    if os.name != "nt":
+        return None, None
+    try:
+        ctypes, kernel32, info_cls = _get_win_job_api()
         job = kernel32.CreateJobObjectW(None, None)
         if not job:
             return None, None
-        info = JOBOBJECT_EXTENDED_LIMIT_INFORMATION()
+        info = info_cls()
         info.BasicLimitInformation.LimitFlags = 0x2000  # JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE
         if not kernel32.SetInformationJobObject(job, 9, ctypes.byref(info), ctypes.sizeof(info)):
             kernel32.CloseHandle(job)

@@ -1,6 +1,7 @@
 """List Git change paths as JSON, keeping commit and worktree scopes separate."""
 
 import argparse
+from concurrent.futures import ThreadPoolExecutor
 import json
 import os
 from pathlib import Path
@@ -82,9 +83,13 @@ def worktree_changes(root):
     else:
         head = result.stdout.decode("ascii").strip()
         baseline = (head,)
-    staged = run_git(root, "diff", "--cached", *DIFF_OPTIONS, *baseline, "--").stdout
-    unstaged = run_git(root, "diff", *DIFF_OPTIONS, "--").stdout
-    untracked = run_git(root, "ls-files", "--others", "--exclude-standard", "-z").stdout
+    with ThreadPoolExecutor(max_workers=3) as executor:
+        f_staged = executor.submit(run_git, root, "diff", "--cached", *DIFF_OPTIONS, *baseline, "--")
+        f_unstaged = executor.submit(run_git, root, "diff", *DIFF_OPTIONS, "--")
+        f_untracked = executor.submit(run_git, root, "ls-files", "--others", "--exclude-standard", "-z")
+        staged = f_staged.result().stdout
+        unstaged = f_unstaged.result().stdout
+        untracked = f_untracked.result().stdout
     return {
         "head": head,
         "unborn": head is None,

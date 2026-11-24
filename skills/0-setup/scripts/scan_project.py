@@ -49,6 +49,7 @@ def entry_stat(path):
 
 def git_paths(root, raw_paths):
     seen = set()
+    checked_dirs = {}
     for raw_path in raw_paths.split(b"\0"):
         if not raw_path or raw_path in seen:
             continue
@@ -59,31 +60,50 @@ def git_paths(root, raw_paths):
         if any(directory.casefold() in SKIP_DIRECTORIES for directory in relative.parts[:-1]):
             continue
         current = root
-        for part in relative.parts:
+        dir_ok = True
+        for part in relative.parts[:-1]:
             current = current / part
-            info = entry_stat(current)
-            if info is None:
+            ok = checked_dirs.get(current)
+            if ok is None:
+                ok = entry_stat(current) is not None
+                checked_dirs[current] = ok
+            if not ok:
+                dir_ok = False
                 break
-        else:
-            if stat.S_ISREG(info.st_mode):
-                yield relative
+        if not dir_ok:
+            continue
+        info = entry_stat(current / relative.parts[-1])
+        if info is not None and stat.S_ISREG(info.st_mode):
+            yield relative
+
+
+def _is_reparse_or_link(info):
+    return stat.S_ISLNK(info.st_mode) or bool(
+        getattr(info, "st_file_attributes", 0) & stat.FILE_ATTRIBUTE_REPARSE_POINT
+    )
 
 
 def walk_paths(root):
-    def raise_scan_error(error):
-        raise error
+    def _walk(current):
+        with os.scandir(current) as it:
+            entries = sorted(it, key=lambda e: e.name)
+        dirs = []
+        for entry in entries:
+            try:
+                info = entry.stat(follow_symlinks=False)
+            except (FileNotFoundError, NotADirectoryError):
+                continue
+            if _is_reparse_or_link(info):
+                continue
+            if stat.S_ISDIR(info.st_mode):
+                if entry.name.casefold() not in SKIP_DIRECTORIES:
+                    dirs.append(Path(entry.path))
+            elif stat.S_ISREG(info.st_mode):
+                yield Path(entry.path).relative_to(root)
+        for sub in dirs:
+            yield from _walk(sub)
 
-    for location, directories, filenames in os.walk(root, onerror=raise_scan_error):
-        current = Path(location)
-        directories[:] = sorted(
-            name for name in directories
-            if name.casefold() not in SKIP_DIRECTORIES and entry_stat(current / name) is not None
-        )
-        for name in sorted(filenames):
-            path = current / name
-            info = entry_stat(path)
-            if info is not None and stat.S_ISREG(info.st_mode):
-                yield path.relative_to(root)
+    yield from _walk(root)
 
 
 GIT_REPO_ENV_VARS = {
