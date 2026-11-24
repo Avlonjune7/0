@@ -17,6 +17,7 @@ description: 应用个人工具偏好，适用于 CLI 或技能安装、Windows 
 - 额外安装 CLI 与工具链优先 WinGet；支持自选目录时装到 `D:\code\cli\<工具名>`（固定路径遵循工具约定，项目依赖跟随项目）。
 - 命令找不到时，核对当前进程与用户/系统 PATH 差异及已知入口（常用 `D:\code\cli`、WinGet 便携包 `D:\code\Portable\User`），仅按需补充当前进程 PATH 并核对解析到的实际可执行文件。
 - PowerShell 禁止执行 `.ps1` 时改用 `.cmd` 或 `cmd /c` 调用（如 `cmd /c "npx -y pnpm ..."`）；解压深层目录压缩包避开 `MAX_PATH` 限制时，优先短根目录 + `tar.exe -xf` 而非 `Expand-Archive`。
+- 打包用于云平台或 Linux 上传的 `.zip` 时，避免使用 PowerShell `Compress-Archive`（会写入 `\` 反斜杠路径，易触发 EdgeOne Pages 等平台非法字符报错）；改用 `tar.exe -a -cf <out.zip> -C <dir> .` 或 Python `zipfile` 显式写入 `/` 路径分隔符，并确认入口文件位于压缩包根目录。
 
 ## Go 构建与部署
 
