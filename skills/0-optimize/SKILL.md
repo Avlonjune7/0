@@ -17,7 +17,7 @@ disable-model-invocation: true
 
 ## 1. 全景测绘与基线采集（只读）
 
-- 按项目 `AGENTS.md` / `CLAUDE.md` 读取 `docs/workflow.md`、`docs/decisions.md`（按需运行 [scan_project.py](../0-setup/scripts/scan_project.py)）。
+- 按项目 `AGENTS.md` / `CLAUDE.md` 读取 `docs/workflow.md`、`docs/decisions.md`（已安装 `0-setup` 时可按需运行其 `scan_project.py`）。
 - 梳理完整工程的模块边界、依赖拓扑、核心链路、数据流与共享状态；识别跨模块重复逻辑、冗余分层、死代码与热路径。
 - 记录开工提交与 `git status`（若同文件已有未提交改动，按 `0-build` 规则保留基线差异）。
 - 采集改前基线：现有测试通过状态 + 可复现性能指标（关键链路延迟 P50/P95、吞吐、CPU/内存、启动或构建耗时）+ 复杂度快照（文件/代码行数、跨模块依赖、热点函数）。缺少基准时先建最小可复现基准。
@@ -26,7 +26,7 @@ disable-model-invocation: true
 
 - 按「收益 / 风险 / 改动面」排序产出 Top N 批次方案，每批写明目标、涉及模块与调用方、复杂度与性能预期、编号验收指标（`AC-1`…）和回滚方式。
 - 先用大白话列出业务影响、契约变化与目标取舍待拍板项，技术细节后置。
-- 跨 3 个及以上模块或高风险重构，按 [0-review](../0-review/SKILL.md) 规格评审协议派金鱼子代理独立复核方案；获用户批准后再动手。
+- 跨 3 个及以上模块或高风险重构，按 `0-review` 规格评审协议派金鱼子代理独立复核方案；获用户批准后再动手。
 
 ## 3. 分批原子实施
 
@@ -36,7 +36,7 @@ disable-model-invocation: true
 
 ## 4. 量化复测、金鱼评审与交付
 
-- 用同一套测试与基准命令复跑全量验收（多条互不干扰命令可用 [run_checks.py](../0-build/scripts/run_checks.py)），输出**改前 vs 改后**对比表（延迟/吞吐/内存/代码量/依赖变化）。
-- 按 [0-review](../0-review/SKILL.md) 代码评审协议做一轮金鱼评审（用 [collect_changes.py](../0-review/scripts/collect_changes.py) 收集改动），修复证据成立的问题并定向复测。
+- 用同一套测试与基准命令复跑全量验收（已安装 `0-build` 时多条互不干扰命令可用其 `run_checks.py`），输出**改前 vs 改后**对比表（延迟/吞吐/内存/代码量/依赖变化）。
+- 按 `0-review` 代码评审协议做一轮金鱼评审（已安装 `0-review` 时优先用其 `collect_changes.py`，否则用 `git diff` 收集改动），修复证据成立的问题并定向复测。
 - 同步受影响的 README、模块说明，关键架构取舍追加到 `docs/decisions.md`。
 - 交付不超过 12 行：优化范围与批次、改前/改后关键指标对比、测试与金鱼评审结果、遗留缺口与回退说明。
