@@ -22,6 +22,8 @@ description: 应用个人工具偏好，适用于 CLI 或技能安装、Windows 
 ## Go 构建与部署
 
 - 本机开发测试用宿主目标；部署 Debian 时先查明服务器架构再交叉编译 Linux 产物（含 CGO 时选兼容工具链）。目标平台变量仅在构建进程生效，部署后验证目标环境实际运行。
+- 个人生产服务器默认为 Debian 12/13（`linux-amd64`），采用 `systemd` 托管服务、宝塔仅做 Nginx 反代与 SSL；编写部署/运维指令时优先给出可直接整段复制执行的命令块（不留中文占位符，用 `ls -t ... | head -n1` 选最新产物）。
+- `systemd` 启用 `DynamicUser=yes` + `StateDirectory` 时，以 `root` 离线恢复或替换数据目录文件后，须执行 `chown -R --reference=<目录>/ <目录>/` 还原动态用户属主再启动服务，避免无权打开数据库。
 
 ## Android 便携构建
 
