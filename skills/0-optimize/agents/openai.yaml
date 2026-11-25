@@ -1,0 +1,7 @@
+interface:
+  display_name: "0-optimize 全工程降复杂度与性能优化"
+  short_description: "以完整工程源码为范围测绘基线、全局诊断并分批重构，降低整体复杂度并提升执行效率与响应速度"
+  default_prompt: "使用 $0-optimize 对当前工程做全景测绘与基线采集，提出高杠杆全局降复杂度与性能优化方案，经我确认后分批实施并量化验收。"
+
+policy:
+  allow_implicit_invocation: false
