@@ -5,7 +5,7 @@
 - Astryx 页面用项目版本指引验收（如 `astryx docs is-my-code-good`）；Vue 页面按 shadcn-vue 配置核对主题与交互。
 
 ## 浏览器分工
-- 用户指定工具优先；否则：真实登录态页面或线上表单/接口关联排查优先 `browser-skill`，本地页面与独立测试优先 `playwright-cli`。
+- 用户指定工具优先；否则优先使用当前客户端原生内置浏览器能力（Antigravity 内置 browser / Codex 官方 browser 插件）。
 - 同一页面只由一个工具控制，滚动问题在实际容器内验证，结束时清理本任务会话。
 
 ## 性能与评审路由
