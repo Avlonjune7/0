@@ -49,7 +49,7 @@
 | 技能 | 用途 | 触发方式 |
 | --- | --- | --- |
 | [me-ui](skills/me-ui/SKILL.md) | 组件与设计系统、页面验收、浏览器与前端性能偏好 | 按任务匹配，也可手动调用 |
-| [me-tools](skills/me-tools/SKILL.md) | CLI、Windows PATH 与脚本执行排障、RTK、静态检查、Go 与 Android 便携构建偏好 | 按任务匹配，也可手动调用 |
+| [me-tools](skills/me-tools/SKILL.md) | CLI、Windows PATH 与脚本执行排障、静态检查、Go 与 Android 便携构建偏好 | 按任务匹配，也可手动调用 |
 
 ---
 
@@ -66,12 +66,13 @@
 ---
 
 <details>
-<summary>辅助脚本与 checks.json（4 个独立 Python 工具）</summary>
+<summary>辅助脚本与 checks.json（5 个独立 Python 工具）</summary>
 
 - `skills/0-setup/scripts/scan_project.py`：扫描项目文档、配置与候选源码目录
 - `skills/0-setup/scripts/check_links.py`：批量校验 Markdown 本地相对链接
 - `skills/0-review/scripts/collect_changes.py`：收集待审查变更
 - `skills/0-build/scripts/run_checks.py`：并发执行授权的检查清单（默认单命令超时 300s）
+- `skills/0-optimize/scripts/baseline_snapshot.py`：采集与对比全站性能与复杂度基线快照
 
 ```powershell
 python skills/0-setup/scripts/scan_project.py --root D:/project/example
@@ -94,7 +95,7 @@ python skills/0-build/scripts/run_checks.py --root D:/project/example --commands
 <details>
 <summary>同步到 GitHub 与仓库回归测试（scripts/sync.ps1）</summary>
 
-同步方向：**本机已安装的 8 个技能 → 本仓库 `skills/` → GitHub `main`**（默认读取 `D:\DATA\cc switch\skills`）。
+同步方向：**本机已安装的 9 个技能 → 本仓库 `skills/` → GitHub `main`**（默认读取 `D:\DATA\cc switch\skills`）。
 
 ```powershell
 .\scripts\sync.ps1 -Preview                          # 预览变化，不改文件、不推远端
