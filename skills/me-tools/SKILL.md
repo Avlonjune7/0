@@ -25,11 +25,11 @@ description: 应用个人工具偏好，适用于 CLI 或技能安装、Windows 
 
 ## 服务器部署
 
-- 个人生产服务器默认为 Debian 12/13（`linux-amd64`），采用 `systemd` 托管服务、宝塔仅做 Nginx 反代与 SSL；编写部署/运维指令时优先给出可直接整段复制执行的命令块（不留中文占位符，用 `ls -t ... | head -n1` 选最新产物）。
+- 个人生产服务器默认为 Debian 12/13（`linux-amd64`），默认已装好宝塔、Nginx 及常规运行时（如 Node.js），采用 `systemd` 托管服务、宝塔仅做 Nginx 反代与 SSL；编写部署文档/指令时不重复安装宝塔、Nginx 或运行时，优先给出可直接整段复制执行的命令块（不留中文占位符，用 `ls -t ... | head -n1` 选最新产物）。
 - `systemd` 启用 `DynamicUser=yes` + `StateDirectory` 时，以 `root` 离线恢复或替换数据目录文件后，须执行 `chown -R --reference=<目录>/ <目录>/` 还原动态用户属主再启动服务，避免无权打开数据库。
 - 用户说“更新”或服务已在运行时，只给现有实例升级步骤（上传校验、备份、替换、重启、验证与回滚），不重复首次装机流程。
 - 服务器手动上传与升级统一收口到 `/root/deploy/`（`incoming/` 放上传包、`work/` 放解压与校验临时文件、`backups/<项目名>/` 放升级前备份），不再散落到 `/root` 根目录或 `/tmp`；升级脚本须自动清理 `work/` 临时文件及已安装完成的压缩包，且每个项目在 `backups/<项目名>/` 下仅保留最近 2 份回滚备份。
-- **个人私有仓库**的 GitHub Releases 升级统一用服务器本地固定脚本 `/root/deploy/deploy.sh`（`0700`，软链 `/usr/local/bin/deploy`，仅更新脚本本身时从 Secret Gist `https://gist.githubusercontent.com/Avlonjune7/fa97a788a78c759754d32aa9ad0c6ae7/raw/deploy.sh` 手动拉取，日常执行 `deploy <项目> [latest|<tag>|--force|rollback|backups]`；公开仓库无需走 Gist）。项目配置放 `/root/deploy/env/<项目>.env`（`root` 持有、`0600`/`0400`，单仓库 `Contents: read` PAT），支持 `binary` 与 `release_dir`（`ENTRYPOINT` 补 `0755`、`current` 须为软链并用 `mv -Tf` 切换），具备 `flock` 锁、SHA-256 校验、验活后写状态与轮换备份、失败自动回滚（`AUTO_ROLLBACK=0` 可关）及断网离线回滚。
+- **个人私有仓库**的 GitHub Releases **首次部署与升级**统一用服务器本地固定脚本 `/root/deploy/deploy.sh`（`0700`，软链 `/usr/local/bin/deploy`，仅更新脚本本身时从 Secret Gist `https://gist.githubusercontent.com/Avlonjune7/fa97a788a78c759754d32aa9ad0c6ae7/raw/deploy.sh` 手动拉取，日常执行 `deploy <项目> [latest|<tag>|--force|rollback|backups]`；公开仓库无需走 Gist）。首次部署直接给一段一键初始化命令块（建用户/目录/env/`systemd` 后调用 `deploy <项目>`），不另写手动上传 ZIP 或重复的手动升级/回滚流程，仓库文档不写入 Secret Gist 地址。项目配置放 `/root/deploy/env/<项目>.env`（`root` 持有、`0600`/`0400`，单仓库 `Contents: read` PAT），支持 `binary` 与 `release_dir`（`ENTRYPOINT` 补 `0755`、`current` 须为软链并用 `mv -Tf` 切换），具备 `flock` 锁、SHA-256 校验、验活后写状态与轮换备份、失败自动回滚（`AUTO_ROLLBACK=0` 可关）及断网离线回滚。
 
 ## Android 便携构建
 
