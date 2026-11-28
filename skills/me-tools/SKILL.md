@@ -26,6 +26,7 @@ description: 应用个人工具偏好，适用于 CLI 或技能安装、Windows 
 - `systemd` 启用 `DynamicUser=yes` + `StateDirectory` 时，以 `root` 离线恢复或替换数据目录文件后，须执行 `chown -R --reference=<目录>/ <目录>/` 还原动态用户属主再启动服务，避免无权打开数据库。
 - 用户说“更新”或服务已在运行时，只给现有实例升级步骤（上传校验、备份、替换、重启、验证与回滚），不重复首次装机流程。
 - 服务器手动上传与升级统一收口到 `/root/deploy/`（`incoming/` 放上传包、`work/` 放解压与校验临时文件、`backups/<项目名>/` 放升级前备份），不再散落到 `/root` 根目录或 `/tmp`；升级脚本须自动清理 `work/` 临时文件及已安装完成的压缩包，且每个项目在 `backups/<项目名>/` 下仅保留最近 2 份回滚备份。
+- **个人私有仓库**的 GitHub Releases 分发采用服务器本地固定脚本 `/root/deploy/deploy.sh`（`0700`，软链 `/usr/local/bin/deploy`），日常执行 `deploy <项目>` 或 `deploy <项目> <tag>`（公开仓库无需走 Gist，可直接在仓库内分发或按需复用脚本并省略 `GH_TOKEN`）；脚本分发源为 Secret Gist（`https://gist.githubusercontent.com/Avlonjune7/fa97a788a78c759754d32aa9ad0c6ae7/raw/deploy.sh`），仅在脚本自身变更时手动更新，不在每次发版时 `curl | bash`。项目配置放 `/root/deploy/env/<项目>.env`（root 持有、`0600`/`0400`，私有库用单仓库 `Contents: read` Fine-grained PAT）；支持 `binary`（原子替换 `0755` 二进制）与 `release_dir`（版本目录 + `current` 软链，配置与数据放外部）两种模式，内置 `flock` 项目锁、GitHub 资产 SHA-256 `digest` 校验、显式 `systemctl restart` + 健康检查、默认 `AUTO_ROLLBACK=1`（不可逆数据库迁移设为 `0`）、离线 `deploy <项目> rollback [备份名]`，且仅在新版本验活通过后按 `BACKUP_KEEP=2` 轮换旧备份。
 
 ## Android 便携构建
 
